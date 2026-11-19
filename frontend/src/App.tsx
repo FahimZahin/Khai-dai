@@ -10,6 +10,9 @@ type Food = {
   price: number;
   time: number;
   spice: string;
+  spicyIngredients: boolean;
+  ingredients: string[];
+  allergens: string[];
   image: string;
 };
 
@@ -24,6 +27,17 @@ const foods: Food[] = [
     spice: "Medium",
     image:
     "https://images.unsplash.com/photo-1559528896-c5310744cce8?w=700&auto=format&fit=crop",
+    spicyIngredients: true,
+ingredients: [
+  "Basmati rice",
+  "Chicken",
+  "Yogurt",
+  "Onion",
+  "Ginger and garlic",
+  "Biryani spices",
+  "Fresh coriander",
+],
+allergens: ["Milk (yogurt)"],
   },
   {
     id: 2,
@@ -34,7 +48,17 @@ const foods: Food[] = [
     time: 15,
     spice: "Mild",
     image:
-      "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=700",
+      "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=700",spicyIngredients: false,
+ingredients: [
+  "Beef patty",
+  "Burger bun",
+  "Cheese",
+  "Lettuce",
+  "Tomato",
+  "Onion",
+  "Special sauce",
+],
+allergens: ["Wheat (bun)", "Milk (cheese)", "Check sauce ingredients"],
   },
   {
     id: 3,
@@ -46,6 +70,16 @@ const foods: Food[] = [
     spice: "Mild",
     image:
       "https://images.unsplash.com/photo-1473093295043-cdd812d0e601?w=700",
+      spicyIngredients: false,
+ingredients: [
+  "Pasta",
+  "Chicken",
+  "Cream",
+  "Parmesan cheese",
+  "Garlic",
+  "Mixed herbs",
+],
+allergens: ["Wheat", "Milk"],
   },
   {
     id: 4,
@@ -57,6 +91,16 @@ const foods: Food[] = [
     spice: "Medium",
     image:
       "https://images.unsplash.com/photo-1532550907401-a500c9a57435?w=700",
+      spicyIngredients: false,
+ingredients: [
+  "Chicken",
+  "Olive oil",
+  "Garlic",
+  "Lemon",
+  "Mixed herbs",
+  "Seasonal vegetables",
+],
+allergens: ["Verify marinade and seasoning"],
   },
   {
     id: 5,
@@ -68,6 +112,13 @@ const foods: Food[] = [
     spice: "Not spicy",
     image:
       "https://images.unsplash.com/photo-1573080496219-bb080dd4f877?w=700",
+      spicyIngredients: false,
+ingredients: [
+  "Potatoes",
+  "Vegetable oil",
+  "Salt",
+],
+allergens: ["Check shared fryer and seasoning"],
   },
   {
     id: 6,
@@ -79,6 +130,15 @@ const foods: Food[] = [
     spice: "Not spicy",
     image:
     "https://images.unsplash.com/photo-1656936637945-571e3f0893f9?w=700&auto=format&fit=crop",
+    spicyIngredients: false,
+ingredients: [
+  "Fresh lemon",
+  "Water",
+  "Sugar",
+  "Mint leaves",
+  "Ice",
+],
+allergens: ["Not yet verified"],
   },
 ];
 
@@ -94,6 +154,7 @@ function App() {
   const [activeCategory, setActiveCategory] = useState("All");
   const [search, setSearch] = useState("");
   const [cartCount, setCartCount] = useState(0);
+  const [selectedFood, setSelectedFood] = useState<Food | null>(null);
 
   const filteredFoods = useMemo(() => {
     return foods.filter((food) => {
@@ -236,6 +297,13 @@ function App() {
                   </div>
 
                   <button
+  className="details-button"
+  onClick={() => setSelectedFood(food)}
+>
+  View ingredients & details
+</button>
+
+                  <button
                     className="add-button"
                     onClick={() =>
                       setCartCount((count) => count + 1)
@@ -267,6 +335,106 @@ function App() {
           </p>
         </section>
       </main>
+
+      {selectedFood && (
+  <div
+    className="modal-backdrop"
+    onClick={() => setSelectedFood(null)}
+  >
+    <div
+      className="food-modal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="food-modal-title"
+      onClick={(e) => e.stopPropagation()}
+    >
+      <button
+        className="modal-close"
+        onClick={() => setSelectedFood(null)}
+        aria-label="Close food details"
+      >
+        ×
+      </button>
+
+      <img
+        className="modal-food-image"
+        src={selectedFood.image}
+        alt={selectedFood.name}
+      />
+
+      <div className="modal-content">
+        <span className="food-category">
+          {selectedFood.category}
+        </span>
+
+        <h2 id="food-modal-title">
+          {selectedFood.name}
+        </h2>
+
+        <p>{selectedFood.description}</p>
+
+        <div className="detail-grid">
+          <div className="detail-item">
+            <span>Preparation time</span>
+            <strong>◷ {selectedFood.time} minutes</strong>
+          </div>
+
+          <div className="detail-item">
+            <span>Spice level</span>
+            <strong>🌶️ {selectedFood.spice}</strong>
+          </div>
+
+          <div className="detail-item">
+            <span>Contains spicy ingredients?</span>
+            <strong>
+              {selectedFood.spicyIngredients ? "Yes" : "No"}
+            </strong>
+          </div>
+
+          <div className="detail-item">
+            <span>Price</span>
+            <strong>৳{selectedFood.price}</strong>
+          </div>
+        </div>
+
+        <div className="detail-list">
+          <h3>🥗 Ingredients</h3>
+
+          <ul>
+            {selectedFood.ingredients.map((ingredient) => (
+              <li key={ingredient}>{ingredient}</li>
+            ))}
+          </ul>
+        </div>
+
+        <div className="detail-list allergen-section">
+          <h3>⚠️ Allergens & kitchen checks</h3>
+
+          <ul>
+            {selectedFood.allergens.map((allergen) => (
+              <li key={allergen}>{allergen}</li>
+            ))}
+          </ul>
+        </div>
+
+        <p className="demo-warning">
+          Sample menu information. Please confirm ingredients
+          and allergens with restaurant staff.
+        </p>
+
+        <button
+          className="modal-add-button"
+          onClick={() => {
+            setCartCount((count) => count + 1);
+            setSelectedFood(null);
+          }}
+        >
+          + Add to order — ৳{selectedFood.price}
+        </button>
+      </div>
+    </div>
+  </div>
+)}
 
       <footer className="footer">
         <a className="logo" href="#">
