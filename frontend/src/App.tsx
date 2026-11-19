@@ -2,9 +2,11 @@
 import { useMemo, useState } from "react";
 import "./App.css";
 
-// ================================
+// ==========================================
 // TYPES
-// ================================
+// ==========================================
+
+type SpiceLevel = "Not Spicy" | "Mild" | "Medium" | "Hot";
 
 type Food = {
   id: number;
@@ -13,8 +15,8 @@ type Food = {
   description: string;
   price: number;
   time: number;
-  spice: string;
-  spicyIngredients: boolean;
+  defaultSpice: SpiceLevel;
+  spiceOptions: SpiceLevel[];
   ingredients: string[];
   allergens: string[];
   image: string;
@@ -23,11 +25,19 @@ type Food = {
 type CartItem = {
   food: Food;
   quantity: number;
+  spiceLevel: SpiceLevel;
 };
 
-// ================================
+// ==========================================
 // FOOD DATA
-// ================================
+// ==========================================
+
+const allSpiceLevels: SpiceLevel[] = [
+  "Not Spicy",
+  "Mild",
+  "Medium",
+  "Hot",
+];
 
 const foods: Food[] = [
   {
@@ -38,8 +48,8 @@ const foods: Food[] = [
       "Fragrant basmati rice with tender chicken and aromatic spices.",
     price: 320,
     time: 25,
-    spice: "Medium",
-    spicyIngredients: true,
+    defaultSpice: "Medium",
+    spiceOptions: allSpiceLevels,
     ingredients: [
       "Basmati rice",
       "Chicken",
@@ -61,8 +71,8 @@ const foods: Food[] = [
       "Juicy beef patty with fresh lettuce, cheese and special sauce.",
     price: 280,
     time: 15,
-    spice: "Mild",
-    spicyIngredients: false,
+    defaultSpice: "Mild",
+    spiceOptions: allSpiceLevels,
     ingredients: [
       "Beef patty",
       "Burger bun",
@@ -87,8 +97,8 @@ const foods: Food[] = [
     description: "Creamy pasta with grilled chicken and herbs.",
     price: 350,
     time: 20,
-    spice: "Mild",
-    spicyIngredients: false,
+    defaultSpice: "Mild",
+    spiceOptions: allSpiceLevels,
     ingredients: [
       "Pasta",
       "Chicken",
@@ -109,8 +119,8 @@ const foods: Food[] = [
       "Tender grilled chicken served with fresh vegetables.",
     price: 420,
     time: 30,
-    spice: "Medium",
-    spicyIngredients: false,
+    defaultSpice: "Medium",
+    spiceOptions: allSpiceLevels,
     ingredients: [
       "Chicken",
       "Olive oil",
@@ -131,8 +141,8 @@ const foods: Food[] = [
       "Golden crispy potato fries with a delicious dip.",
     price: 150,
     time: 10,
-    spice: "Not spicy",
-    spicyIngredients: false,
+    defaultSpice: "Not Spicy",
+    spiceOptions: allSpiceLevels,
     ingredients: [
       "Potatoes",
       "Vegetable oil",
@@ -150,8 +160,8 @@ const foods: Food[] = [
       "Refreshing fresh lemon juice with a hint of mint.",
     price: 100,
     time: 5,
-    spice: "Not spicy",
-    spicyIngredients: false,
+    defaultSpice: "Not Spicy",
+    spiceOptions: ["Not Spicy"],
     ingredients: [
       "Fresh lemon",
       "Water",
@@ -165,9 +175,9 @@ const foods: Food[] = [
   },
 ];
 
-// ================================
+// ==========================================
 // CATEGORIES
-// ================================
+// ==========================================
 
 const categories = [
   "All",
@@ -177,39 +187,50 @@ const categories = [
   "Drinks",
 ];
 
-// ================================
+// ==========================================
 // MAIN APP
-// ================================
+// ==========================================
 
 function App() {
-  // State
-  const [activeCategory, setActiveCategory] =
-    useState("All");
-
+  const [activeCategory, setActiveCategory] = useState("All");
   const [search, setSearch] = useState("");
 
-  const [cartItems, setCartItems] =
-    useState<CartItem[]>([]);
+  const [cartItems, setCartItems] = useState<CartItem[]>([]);
+  const [isCartOpen, setIsCartOpen] = useState(false);
 
-  const [isCartOpen, setIsCartOpen] =
-    useState(false);
+  const [selectedFood, setSelectedFood] = useState<Food | null>(null);
 
-  const [selectedFood, setSelectedFood] =
-    useState<Food | null>(null);
+  const [selectedSpiceLevel, setSelectedSpiceLevel] =
+    useState<SpiceLevel>("Medium");
 
-  // ================================
-  // ADD TO CART
-  // ================================
+  // ==========================================
+  // OPEN FOOD DETAILS
+  // ==========================================
 
-  const addToCart = (food: Food) => {
+  const openFoodDetails = (food: Food) => {
+    setSelectedFood(food);
+    setSelectedSpiceLevel(food.defaultSpice);
+  };
+
+  // ==========================================
+  // ADD FOOD TO CART
+  // ==========================================
+
+  const addToCart = (
+    food: Food,
+    spiceLevel: SpiceLevel
+  ) => {
     setCartItems((currentItems) => {
       const existingItem = currentItems.find(
-        (item) => item.food.id === food.id
+        (item) =>
+          item.food.id === food.id &&
+          item.spiceLevel === spiceLevel
       );
 
       if (existingItem) {
         return currentItems.map((item) =>
-          item.food.id === food.id
+          item.food.id === food.id &&
+          item.spiceLevel === spiceLevel
             ? {
                 ...item,
                 quantity: item.quantity + 1,
@@ -223,23 +244,26 @@ function App() {
         {
           food,
           quantity: 1,
+          spiceLevel,
         },
       ];
     });
   };
 
-  // ================================
-  // UPDATE QUANTITY
-  // ================================
+  // ==========================================
+  // UPDATE CART QUANTITY
+  // ==========================================
 
   const updateCartQuantity = (
     foodId: number,
+    spiceLevel: SpiceLevel,
     change: number
   ) => {
     setCartItems((currentItems) =>
       currentItems
         .map((item) =>
-          item.food.id === foodId
+          item.food.id === foodId &&
+          item.spiceLevel === spiceLevel
             ? {
                 ...item,
                 quantity: item.quantity + change,
@@ -250,21 +274,87 @@ function App() {
     );
   };
 
-  // ================================
-  // REMOVE FROM CART
-  // ================================
+  // ==========================================
+  // REMOVE CART ITEM
+  // ==========================================
 
-  const removeFromCart = (foodId: number) => {
+  const removeFromCart = (
+    foodId: number,
+    spiceLevel: SpiceLevel
+  ) => {
     setCartItems((currentItems) =>
       currentItems.filter(
-        (item) => item.food.id !== foodId
+        (item) =>
+          !(
+            item.food.id === foodId &&
+            item.spiceLevel === spiceLevel
+          )
       )
     );
   };
 
-  // ================================
+  // ==========================================
+  // CHANGE SPICE LEVEL IN CART
+  // ==========================================
+
+  const updateCartSpice = (
+    foodId: number,
+    oldSpice: SpiceLevel,
+    newSpice: SpiceLevel
+  ) => {
+    if (oldSpice === newSpice) return;
+
+    setCartItems((currentItems) => {
+      const sourceItem = currentItems.find(
+        (item) =>
+          item.food.id === foodId &&
+          item.spiceLevel === oldSpice
+      );
+
+      if (!sourceItem) return currentItems;
+
+      const existingTarget = currentItems.find(
+        (item) =>
+          item.food.id === foodId &&
+          item.spiceLevel === newSpice
+      );
+
+      if (existingTarget) {
+        return currentItems
+          .filter(
+            (item) =>
+              !(
+                item.food.id === foodId &&
+                item.spiceLevel === oldSpice
+              )
+          )
+          .map((item) =>
+            item.food.id === foodId &&
+            item.spiceLevel === newSpice
+              ? {
+                  ...item,
+                  quantity:
+                    item.quantity + sourceItem.quantity,
+                }
+              : item
+          );
+      }
+
+      return currentItems.map((item) =>
+        item.food.id === foodId &&
+        item.spiceLevel === oldSpice
+          ? {
+              ...item,
+              spiceLevel: newSpice,
+            }
+          : item
+      );
+    });
+  };
+
+  // ==========================================
   // CART CALCULATIONS
-  // ================================
+  // ==========================================
 
   const cartCount = cartItems.reduce(
     (total, item) => total + item.quantity,
@@ -277,7 +367,6 @@ function App() {
     0
   );
 
-  // Preliminary estimate assuming parallel preparation
   const estimatedPrepTime =
     cartItems.length > 0
       ? Math.max(
@@ -285,9 +374,9 @@ function App() {
         )
       : 0;
 
-  // ================================
-  // FILTER FOOD
-  // ================================
+  // ==========================================
+  // FOOD FILTER
+  // ==========================================
 
   const filteredFoods = useMemo(() => {
     return foods.filter((food) => {
@@ -303,9 +392,9 @@ function App() {
     });
   }, [activeCategory, search]);
 
-  // ================================
+  // ==========================================
   // SCROLL TO MENU
-  // ================================
+  // ==========================================
 
   const scrollToMenu = () => {
     document.getElementById("menu")?.scrollIntoView({
@@ -313,9 +402,9 @@ function App() {
     });
   };
 
-  // ================================
+  // ==========================================
   // RENDER
-  // ================================
+  // ==========================================
 
   return (
     <div className="app">
@@ -341,16 +430,14 @@ function App() {
         >
           <span>🛒</span>
           My Order
-          <span className="cart-count">
-            {cartCount}
-          </span>
+          <span className="cart-count">{cartCount}</span>
         </button>
 
       </header>
 
       <main>
 
-        {/* HERO SECTION */}
+        {/* HERO */}
 
         <section className="hero" id="home">
 
@@ -394,21 +481,18 @@ function App() {
             />
 
             <div className="floating-card">
-
               <span>🍽️</span>
-
               <div>
                 <strong>Made fresh</strong>
                 <small>Every single order</small>
               </div>
-
             </div>
 
           </div>
 
         </section>
 
-        {/* MENU SECTION */}
+        {/* MENU */}
 
         <section className="menu-section" id="menu">
 
@@ -429,18 +513,14 @@ function App() {
             </div>
 
             <div className="search-box">
-
               <span>⌕</span>
 
               <input
                 type="search"
                 placeholder="Search your favourite food..."
                 value={search}
-                onChange={(e) =>
-                  setSearch(e.target.value)
-                }
+                onChange={(e) => setSearch(e.target.value)}
               />
-
             </div>
 
           </div>
@@ -458,9 +538,7 @@ function App() {
                     ? "category-button active"
                     : "category-button"
                 }
-                onClick={() =>
-                  setActiveCategory(category)
-                }
+                onClick={() => setActiveCategory(category)}
               >
                 {category}
               </button>
@@ -504,27 +582,24 @@ function App() {
                   <p>{food.description}</p>
 
                   <div className="food-meta">
-
-                    <span>🌶️ {food.spice}</span>
-
+                    <span>
+                      🌶️ {food.defaultSpice}
+                    </span>
                     <strong>৳{food.price}</strong>
-
                   </div>
 
                   <button
                     className="details-button"
-                    onClick={() =>
-                      setSelectedFood(food)
-                    }
+                    onClick={() => openFoodDetails(food)}
                   >
-                    View ingredients & details
+                    Choose spice & view details
                   </button>
 
                   <button
                     className="add-button"
-                    onClick={() => addToCart(food)}
+                    onClick={() => openFoodDetails(food)}
                   >
-                    + Add to order
+                    + Customize & add to order
                   </button>
 
                 </div>
@@ -535,27 +610,19 @@ function App() {
 
           </div>
 
-          {/* EMPTY SEARCH */}
-
           {filteredFoods.length === 0 && (
 
             <div className="empty-state">
-
               <span>🍽️</span>
-
               <h3>No dishes found</h3>
-
-              <p>
-                Try searching for something else.
-              </p>
-
+              <p>Try searching for something else.</p>
             </div>
 
           )}
 
         </section>
 
-        {/* ABOUT SECTION */}
+        {/* ABOUT */}
 
         <section className="about-section" id="about">
 
@@ -578,7 +645,7 @@ function App() {
       </main>
 
       {/* =================================
-          FOOD DETAILS MODAL
+          FOOD DETAILS AND SPICE MODAL
       ================================= */}
 
       {selectedFood && (
@@ -632,23 +699,7 @@ function App() {
                 </div>
 
                 <div className="detail-item">
-                  <span>Spice level</span>
-                  <strong>
-                    🌶️ {selectedFood.spice}
-                  </strong>
-                </div>
-
-                <div className="detail-item">
-                  <span>Contains spicy ingredients?</span>
-                  <strong>
-                    {selectedFood.spicyIngredients
-                      ? "Yes"
-                      : "No"}
-                  </strong>
-                </div>
-
-                <div className="detail-item">
-                  <span>Price</span>
+                  <span>Price per serving</span>
                   <strong>
                     ৳{selectedFood.price}
                   </strong>
@@ -656,50 +707,95 @@ function App() {
 
               </div>
 
+              {/* SPICE SELECTOR */}
+
+              <div className="spice-selector">
+
+                <div>
+                  <h3>🌶️ Choose your spice level</h3>
+
+                  <p>
+                    How spicy would you like your food?
+                  </p>
+                </div>
+
+                <div className="spice-options">
+
+                  {selectedFood.spiceOptions.map((level) => (
+
+                    <button
+                      key={level}
+                      type="button"
+                      className={
+                        selectedSpiceLevel === level
+                          ? "spice-option active"
+                          : "spice-option"
+                      }
+                      onClick={() => setSelectedSpiceLevel(level)}
+                    >
+                      {level === "Not Spicy"
+                        ? "😊"
+                        : level === "Mild"
+                        ? "🌶️"
+                        : level === "Medium"
+                        ? "🌶️🌶️"
+                        : "🌶️🌶️🌶️"}
+                      <span>{level}</span>
+                    </button>
+
+                  ))}
+
+                </div>
+
+                <p className="spice-note">
+                  Selected: <strong>{selectedSpiceLevel}</strong>
+                </p>
+
+              </div>
+
+              {/* INGREDIENTS */}
+
               <div className="detail-list">
 
                 <h3>🥗 Ingredients</h3>
 
                 <ul>
-                  {selectedFood.ingredients.map(
-                    (ingredient) => (
-                      <li key={ingredient}>
-                        {ingredient}
-                      </li>
-                    )
-                  )}
+                  {selectedFood.ingredients.map((ingredient) => (
+                    <li key={ingredient}>{ingredient}</li>
+                  ))}
                 </ul>
 
               </div>
 
+              {/* ALLERGENS */}
+
               <div className="detail-list allergen-section">
 
-                <h3>
-                  ⚠️ Allergens & kitchen checks
-                </h3>
+                <h3>⚠️ Allergens & kitchen checks</h3>
 
                 <ul>
-                  {selectedFood.allergens.map(
-                    (allergen) => (
-                      <li key={allergen}>
-                        {allergen}
-                      </li>
-                    )
-                  )}
+                  {selectedFood.allergens.map((allergen) => (
+                    <li key={allergen}>{allergen}</li>
+                  ))}
                 </ul>
 
               </div>
 
               <p className="demo-warning">
-                Sample menu information. Confirm all
-                ingredients and allergens with restaurant
-                staff before serving customers.
+                Sample menu information. Confirm actual
+                ingredients, allergens and spice options
+                with restaurant staff before serving.
               </p>
+
+              {/* ADD TO CART */}
 
               <button
                 className="modal-add-button"
                 onClick={() => {
-                  addToCart(selectedFood);
+                  addToCart(
+                    selectedFood,
+                    selectedSpiceLevel
+                  );
                   setSelectedFood(null);
                 }}
               >
@@ -738,15 +834,11 @@ function App() {
             <div className="cart-header">
 
               <div>
-
                 <span className="eyebrow">
                   YOUR SELECTION
                 </span>
 
-                <h2 id="cart-title">
-                  My Order
-                </h2>
-
+                <h2 id="cart-title">My Order</h2>
               </div>
 
               <button
@@ -797,7 +889,7 @@ function App() {
 
                     <div
                       className="cart-item"
-                      key={item.food.id}
+                      key={`${item.food.id}-${item.spiceLevel}`}
                     >
 
                       <img
@@ -813,12 +905,46 @@ function App() {
                           ৳{item.food.price * item.quantity}
                         </strong>
 
+                        <p className="cart-spice-label">
+                          Spice level: {item.spiceLevel}
+                        </p>
+
+                        {/* CHANGE SPICE IN CART */}
+
+                        <label className="cart-spice-control">
+
+                          <span>Change spice:</span>
+
+                          <select
+                            value={item.spiceLevel}
+                            onChange={(e) =>
+                              updateCartSpice(
+                                item.food.id,
+                                item.spiceLevel,
+                                e.target.value as SpiceLevel
+                              )
+                            }
+                          >
+
+                            {item.food.spiceOptions.map((level) => (
+                              <option key={level} value={level}>
+                                {level}
+                              </option>
+                            ))}
+
+                          </select>
+
+                        </label>
+
+                        {/* QUANTITY */}
+
                         <div className="quantity-controls">
 
                           <button
                             onClick={() =>
                               updateCartQuantity(
                                 item.food.id,
+                                item.spiceLevel,
                                 -1
                               )
                             }
@@ -833,6 +959,7 @@ function App() {
                             onClick={() =>
                               updateCartQuantity(
                                 item.food.id,
+                                item.spiceLevel,
                                 1
                               )
                             }
@@ -848,7 +975,10 @@ function App() {
                       <button
                         className="remove-item"
                         onClick={() =>
-                          removeFromCart(item.food.id)
+                          removeFromCart(
+                            item.food.id,
+                            item.spiceLevel
+                          )
                         }
                         aria-label={`Remove ${item.food.name}`}
                         title="Remove item"
@@ -878,9 +1008,7 @@ function App() {
 
                   <div>
                     <span>Estimated preparation</span>
-                    <strong>
-                      {estimatedPrepTime} min
-                    </strong>
+                    <strong>{estimatedPrepTime} min</strong>
                   </div>
 
                   <div className="cart-total">
