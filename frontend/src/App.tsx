@@ -8,6 +8,12 @@ import "./App.css";
 
 type SpiceLevel = "Not Spicy" | "Mild" | "Medium" | "Hot";
 
+type AddOn = {
+  id: string;
+  name: string;
+  price: number;
+};
+
 type Food = {
   id: number;
   name: string;
@@ -19,6 +25,7 @@ type Food = {
   spiceOptions: SpiceLevel[];
   ingredients: string[];
   allergens: string[];
+  addons: AddOn[];
   image: string;
 };
 
@@ -26,11 +33,8 @@ type CartItem = {
   food: Food;
   quantity: number;
   spiceLevel: SpiceLevel;
+  selectedAddons: AddOn[];
 };
-
-// ==========================================
-// FOOD DATA
-// ==========================================
 
 const allSpiceLevels: SpiceLevel[] = [
   "Not Spicy",
@@ -38,6 +42,26 @@ const allSpiceLevels: SpiceLevel[] = [
   "Medium",
   "Hot",
 ];
+
+// ==========================================
+// HELPER FUNCTIONS
+// ==========================================
+
+const getAddOnTotal = (addons: AddOn[]) =>
+  addons.reduce((total, addon) => total + addon.price, 0);
+
+const getCartItemKey = (item: CartItem) => {
+  const addonIds = item.selectedAddons
+    .map((addon) => addon.id)
+    .sort()
+    .join(",");
+
+  return `${item.food.id}|${item.spiceLevel}|${addonIds}`;
+};
+
+// ==========================================
+// FOOD DATA
+// ==========================================
 
 const foods: Food[] = [
   {
@@ -60,6 +84,12 @@ const foods: Food[] = [
       "Fresh coriander",
     ],
     allergens: ["Milk (yogurt)"],
+    addons: [
+      { id: "extra-chicken", name: "Extra chicken", price: 120 },
+      { id: "boiled-egg", name: "Boiled egg", price: 25 },
+      { id: "extra-rice", name: "Extra rice", price: 60 },
+      { id: "raita", name: "Extra raita", price: 30 },
+    ],
     image:
       "https://images.unsplash.com/photo-1559528896-c5310744cce8?w=700&auto=format&fit=crop",
   },
@@ -87,6 +117,12 @@ const foods: Food[] = [
       "Milk (cheese)",
       "Check sauce ingredients",
     ],
+    addons: [
+      { id: "extra-cheese", name: "Extra cheese", price: 40 },
+      { id: "extra-patty", name: "Extra beef patty", price: 120 },
+      { id: "jalapenos", name: "Jalapeños", price: 25 },
+      { id: "extra-sauce", name: "Extra sauce", price: 20 },
+    ],
     image:
       "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=700",
   },
@@ -108,6 +144,12 @@ const foods: Food[] = [
       "Mixed herbs",
     ],
     allergens: ["Wheat", "Milk"],
+    addons: [
+      { id: "extra-chicken", name: "Extra chicken", price: 100 },
+      { id: "extra-cheese", name: "Extra cheese", price: 40 },
+      { id: "mushrooms", name: "Mushrooms", price: 50 },
+      { id: "garlic-bread", name: "Garlic bread", price: 60 },
+    ],
     image:
       "https://images.unsplash.com/photo-1473093295043-cdd812d0e601?w=700",
   },
@@ -130,6 +172,12 @@ const foods: Food[] = [
       "Seasonal vegetables",
     ],
     allergens: ["Verify marinade and seasoning"],
+    addons: [
+      { id: "extra-chicken", name: "Extra chicken portion", price: 150 },
+      { id: "extra-vegetables", name: "Extra vegetables", price: 50 },
+      { id: "mashed-potatoes", name: "Mashed potatoes", price: 60 },
+      { id: "extra-sauce", name: "Extra sauce", price: 25 },
+    ],
     image:
       "https://images.unsplash.com/photo-1532550907401-a500c9a57435?w=700",
   },
@@ -149,6 +197,11 @@ const foods: Food[] = [
       "Salt",
     ],
     allergens: ["Check shared fryer and seasoning"],
+    addons: [
+      { id: "extra-fries", name: "Extra fries", price: 80 },
+      { id: "cheese-dip", name: "Cheese dip", price: 30 },
+      { id: "spicy-seasoning", name: "Spicy seasoning", price: 15 },
+    ],
     image:
       "https://images.unsplash.com/photo-1573080496219-bb080dd4f877?w=700",
   },
@@ -170,6 +223,11 @@ const foods: Food[] = [
       "Ice",
     ],
     allergens: ["Not yet verified"],
+    addons: [
+      { id: "extra-lemon", name: "Extra lemon", price: 15 },
+      { id: "extra-mint", name: "Extra mint", price: 10 },
+      { id: "extra-sugar", name: "Extra sugar", price: 0 },
+    ],
     image:
       "https://images.unsplash.com/photo-1656936637945-571e3f0893f9?w=700&auto=format&fit=crop",
   },
@@ -203,6 +261,8 @@ function App() {
   const [selectedSpiceLevel, setSelectedSpiceLevel] =
     useState<SpiceLevel>("Medium");
 
+  const [selectedAddons, setSelectedAddons] = useState<AddOn[]>([]);
+
   // ==========================================
   // OPEN FOOD DETAILS
   // ==========================================
@@ -210,6 +270,25 @@ function App() {
   const openFoodDetails = (food: Food) => {
     setSelectedFood(food);
     setSelectedSpiceLevel(food.defaultSpice);
+    setSelectedAddons([]);
+  };
+
+  // ==========================================
+  // TOGGLE ADD-ON
+  // ==========================================
+
+  const toggleAddon = (addon: AddOn) => {
+    setSelectedAddons((current) => {
+      const alreadySelected = current.some(
+        (item) => item.id === addon.id
+      );
+
+      if (alreadySelected) {
+        return current.filter((item) => item.id !== addon.id);
+      }
+
+      return [...current, addon];
+    });
   };
 
   // ==========================================
@@ -218,35 +297,36 @@ function App() {
 
   const addToCart = (
     food: Food,
-    spiceLevel: SpiceLevel
+    spiceLevel: SpiceLevel,
+    addons: AddOn[]
   ) => {
+    const normalizedAddons = [...addons].sort((a, b) =>
+      a.id.localeCompare(b.id)
+    );
+
+    const newItem: CartItem = {
+      food,
+      quantity: 1,
+      spiceLevel,
+      selectedAddons: normalizedAddons,
+    };
+
+    const newKey = getCartItemKey(newItem);
+
     setCartItems((currentItems) => {
       const existingItem = currentItems.find(
-        (item) =>
-          item.food.id === food.id &&
-          item.spiceLevel === spiceLevel
+        (item) => getCartItemKey(item) === newKey
       );
 
       if (existingItem) {
         return currentItems.map((item) =>
-          item.food.id === food.id &&
-          item.spiceLevel === spiceLevel
-            ? {
-                ...item,
-                quantity: item.quantity + 1,
-              }
+          getCartItemKey(item) === newKey
+            ? { ...item, quantity: item.quantity + 1 }
             : item
         );
       }
 
-      return [
-        ...currentItems,
-        {
-          food,
-          quantity: 1,
-          spiceLevel,
-        },
-      ];
+      return [...currentItems, newItem];
     });
   };
 
@@ -255,19 +335,14 @@ function App() {
   // ==========================================
 
   const updateCartQuantity = (
-    foodId: number,
-    spiceLevel: SpiceLevel,
+    itemKey: string,
     change: number
   ) => {
     setCartItems((currentItems) =>
       currentItems
         .map((item) =>
-          item.food.id === foodId &&
-          item.spiceLevel === spiceLevel
-            ? {
-                ...item,
-                quantity: item.quantity + change,
-              }
+          getCartItemKey(item) === itemKey
+            ? { ...item, quantity: item.quantity + change }
             : item
         )
         .filter((item) => item.quantity > 0)
@@ -278,17 +353,10 @@ function App() {
   // REMOVE CART ITEM
   // ==========================================
 
-  const removeFromCart = (
-    foodId: number,
-    spiceLevel: SpiceLevel
-  ) => {
+  const removeFromCart = (itemKey: string) => {
     setCartItems((currentItems) =>
       currentItems.filter(
-        (item) =>
-          !(
-            item.food.id === foodId &&
-            item.spiceLevel === spiceLevel
-          )
+        (item) => getCartItemKey(item) !== itemKey
       )
     );
   };
@@ -298,39 +366,34 @@ function App() {
   // ==========================================
 
   const updateCartSpice = (
-    foodId: number,
-    oldSpice: SpiceLevel,
+    itemKey: string,
     newSpice: SpiceLevel
   ) => {
-    if (oldSpice === newSpice) return;
-
     setCartItems((currentItems) => {
       const sourceItem = currentItems.find(
-        (item) =>
-          item.food.id === foodId &&
-          item.spiceLevel === oldSpice
+        (item) => getCartItemKey(item) === itemKey
       );
 
-      if (!sourceItem) return currentItems;
+      if (!sourceItem || sourceItem.spiceLevel === newSpice) {
+        return currentItems;
+      }
 
-      const existingTarget = currentItems.find(
-        (item) =>
-          item.food.id === foodId &&
-          item.spiceLevel === newSpice
+      const updatedItem: CartItem = {
+        ...sourceItem,
+        spiceLevel: newSpice,
+      };
+
+      const targetKey = getCartItemKey(updatedItem);
+
+      const targetExists = currentItems.some(
+        (item) => getCartItemKey(item) === targetKey
       );
 
-      if (existingTarget) {
+      if (targetExists) {
         return currentItems
-          .filter(
-            (item) =>
-              !(
-                item.food.id === foodId &&
-                item.spiceLevel === oldSpice
-              )
-          )
+          .filter((item) => getCartItemKey(item) !== itemKey)
           .map((item) =>
-            item.food.id === foodId &&
-            item.spiceLevel === newSpice
+            getCartItemKey(item) === targetKey
               ? {
                   ...item,
                   quantity:
@@ -341,13 +404,7 @@ function App() {
       }
 
       return currentItems.map((item) =>
-        item.food.id === foodId &&
-        item.spiceLevel === oldSpice
-          ? {
-              ...item,
-              spiceLevel: newSpice,
-            }
-          : item
+        getCartItemKey(item) === itemKey ? updatedItem : item
       );
     });
   };
@@ -362,20 +419,24 @@ function App() {
   );
 
   const subtotal = cartItems.reduce(
-    (total, item) =>
-      total + item.food.price * item.quantity,
+    (total, item) => {
+      const unitPrice =
+        item.food.price + getAddOnTotal(item.selectedAddons);
+
+      return total + unitPrice * item.quantity;
+    },
     0
   );
 
   const estimatedPrepTime =
     cartItems.length > 0
-      ? Math.max(
-          ...cartItems.map((item) => item.food.time)
-        )
+      ? Math.max(...cartItems.map((item) => item.food.time))
       : 0;
 
+  const selectedAddOnTotal = getAddOnTotal(selectedAddons);
+
   // ==========================================
-  // FOOD FILTER
+  // FILTER FOOD
   // ==========================================
 
   const filteredFoods = useMemo(() => {
@@ -582,9 +643,7 @@ function App() {
                   <p>{food.description}</p>
 
                   <div className="food-meta">
-                    <span>
-                      🌶️ {food.defaultSpice}
-                    </span>
+                    <span>🌶️ {food.defaultSpice}</span>
                     <strong>৳{food.price}</strong>
                   </div>
 
@@ -592,7 +651,7 @@ function App() {
                     className="details-button"
                     onClick={() => openFoodDetails(food)}
                   >
-                    Choose spice & view details
+                    View ingredients & details
                   </button>
 
                   <button
@@ -645,7 +704,7 @@ function App() {
       </main>
 
       {/* =================================
-          FOOD DETAILS AND SPICE MODAL
+          FOOD DETAILS, SPICE AND ADD-ONS
       ================================= */}
 
       {selectedFood && (
@@ -699,7 +758,7 @@ function App() {
                 </div>
 
                 <div className="detail-item">
-                  <span>Price per serving</span>
+                  <span>Base price</span>
                   <strong>
                     ৳{selectedFood.price}
                   </strong>
@@ -711,13 +770,11 @@ function App() {
 
               <div className="spice-selector">
 
-                <div>
-                  <h3>🌶️ Choose your spice level</h3>
+                <h3>🌶️ Choose your spice level</h3>
 
-                  <p>
-                    How spicy would you like your food?
-                  </p>
-                </div>
+                <p>
+                  How spicy would you like your food?
+                </p>
 
                 <div className="spice-options">
 
@@ -740,6 +797,7 @@ function App() {
                         : level === "Medium"
                         ? "🌶️🌶️"
                         : "🌶️🌶️🌶️"}
+
                       <span>{level}</span>
                     </button>
 
@@ -750,6 +808,76 @@ function App() {
                 <p className="spice-note">
                   Selected: <strong>{selectedSpiceLevel}</strong>
                 </p>
+
+              </div>
+
+              {/* ADD-ON SELECTOR */}
+
+              <div className="addon-selector">
+
+                <div className="addon-heading">
+                  <div>
+                    <h3>➕ Customize your food</h3>
+                    <p>
+                      Choose any extras you would like.
+                    </p>
+                  </div>
+
+                  <span className="optional-label">
+                    OPTIONAL
+                  </span>
+                </div>
+
+                <div className="addon-options">
+
+                  {selectedFood.addons.map((addon) => {
+
+                    const isSelected = selectedAddons.some(
+                      (item) => item.id === addon.id
+                    );
+
+                    return (
+
+                      <label
+                        key={addon.id}
+                        className={
+                          isSelected
+                            ? "addon-option selected"
+                            : "addon-option"
+                        }
+                      >
+
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => toggleAddon(addon)}
+                        />
+
+                        <span className="addon-option-info">
+                          <span className="addon-name">
+                            {addon.name}
+                          </span>
+
+                          <span className="addon-price">
+                            {addon.price === 0
+                              ? "Free"
+                              : `+৳${addon.price}`}
+                          </span>
+                        </span>
+
+                      </label>
+
+                    );
+                  })}
+
+                </div>
+
+                <div className="addon-total">
+                  <span>Selected add-ons</span>
+                  <strong>
+                    +৳{selectedAddOnTotal}
+                  </strong>
+                </div>
 
               </div>
 
@@ -782,24 +910,34 @@ function App() {
               </div>
 
               <p className="demo-warning">
-                Sample menu information. Confirm actual
-                ingredients, allergens and spice options
-                with restaurant staff before serving.
+                Sample menu information and add-on prices.
+                Confirm actual ingredients, allergens and
+                available customizations with restaurant staff.
               </p>
 
-              {/* ADD TO CART */}
+              {/* FINAL PRICE */}
+
+              <div className="customized-price">
+                <span>Total per serving</span>
+                <strong>
+                  ৳{selectedFood.price + selectedAddOnTotal}
+                </strong>
+              </div>
 
               <button
                 className="modal-add-button"
                 onClick={() => {
                   addToCart(
                     selectedFood,
-                    selectedSpiceLevel
+                    selectedSpiceLevel,
+                    selectedAddons
                   );
+
                   setSelectedFood(null);
                 }}
               >
-                + Add to order — ৳{selectedFood.price}
+                + Add to order — ৳
+                {selectedFood.price + selectedAddOnTotal}
               </button>
 
             </div>
@@ -811,7 +949,7 @@ function App() {
       )}
 
       {/* =================================
-          SHOPPING CART MODAL
+          SHOPPING CART
       ================================= */}
 
       {isCartOpen && (
@@ -885,110 +1023,127 @@ function App() {
 
                 <div className="cart-items">
 
-                  {cartItems.map((item) => (
+                  {cartItems.map((item) => {
 
-                    <div
-                      className="cart-item"
-                      key={`${item.food.id}-${item.spiceLevel}`}
-                    >
+                    const itemKey = getCartItemKey(item);
 
-                      <img
-                        src={item.food.image}
-                        alt={item.food.name}
-                      />
+                    const addonTotal = getAddOnTotal(
+                      item.selectedAddons
+                    );
 
-                      <div className="cart-item-info">
+                    const unitPrice =
+                      item.food.price + addonTotal;
 
-                        <h3>{item.food.name}</h3>
+                    return (
 
-                        <strong>
-                          ৳{item.food.price * item.quantity}
-                        </strong>
+                      <div
+                        className="cart-item"
+                        key={itemKey}
+                      >
 
-                        <p className="cart-spice-label">
-                          Spice level: {item.spiceLevel}
-                        </p>
+                        <img
+                          src={item.food.image}
+                          alt={item.food.name}
+                        />
 
-                        {/* CHANGE SPICE IN CART */}
+                        <div className="cart-item-info">
 
-                        <label className="cart-spice-control">
+                          <h3>{item.food.name}</h3>
 
-                          <span>Change spice:</span>
+                          <strong>
+                            ৳{unitPrice * item.quantity}
+                          </strong>
 
-                          <select
-                            value={item.spiceLevel}
-                            onChange={(e) =>
-                              updateCartSpice(
-                                item.food.id,
-                                item.spiceLevel,
-                                e.target.value as SpiceLevel
-                              )
-                            }
-                          >
+                          <p className="cart-spice-label">
+                            Spice level: {item.spiceLevel}
+                          </p>
 
-                            {item.food.spiceOptions.map((level) => (
-                              <option key={level} value={level}>
-                                {level}
-                              </option>
-                            ))}
+                          {/* CHANGE SPICE */}
 
-                          </select>
+                          <label className="cart-spice-control">
 
-                        </label>
+                            <span>Change spice:</span>
 
-                        {/* QUANTITY */}
+                            <select
+                              value={item.spiceLevel}
+                              onChange={(e) =>
+                                updateCartSpice(
+                                  itemKey,
+                                  e.target.value as SpiceLevel
+                                )
+                              }
+                            >
 
-                        <div className="quantity-controls">
+                              {item.food.spiceOptions.map((level) => (
+                                <option key={level} value={level}>
+                                  {level}
+                                </option>
+                              ))}
 
-                          <button
-                            onClick={() =>
-                              updateCartQuantity(
-                                item.food.id,
-                                item.spiceLevel,
-                                -1
-                              )
-                            }
-                            aria-label={`Decrease ${item.food.name} quantity`}
-                          >
-                            −
-                          </button>
+                            </select>
 
-                          <span>{item.quantity}</span>
+                          </label>
 
-                          <button
-                            onClick={() =>
-                              updateCartQuantity(
-                                item.food.id,
-                                item.spiceLevel,
-                                1
-                              )
-                            }
-                            aria-label={`Increase ${item.food.name} quantity`}
-                          >
-                            +
-                          </button>
+                          {/* SELECTED ADD-ONS */}
+
+                          {item.selectedAddons.length > 0 && (
+
+                            <div className="cart-addon-list">
+
+                              <span>Extras:</span>
+
+                              {item.selectedAddons.map((addon) => (
+                                <p key={addon.id}>
+                                  + {addon.name}
+                                  {addon.price > 0
+                                    ? ` (৳${addon.price})`
+                                    : " (Free)"}
+                                </p>
+                              ))}
+
+                            </div>
+
+                          )}
+
+                          <div className="quantity-controls">
+
+                            <button
+                              onClick={() =>
+                                updateCartQuantity(itemKey, -1)
+                              }
+                              aria-label={`Decrease ${item.food.name} quantity`}
+                            >
+                              −
+                            </button>
+
+                            <span>{item.quantity}</span>
+
+                            <button
+                              onClick={() =>
+                                updateCartQuantity(itemKey, 1)
+                              }
+                              aria-label={`Increase ${item.food.name} quantity`}
+                            >
+                              +
+                            </button>
+
+                          </div>
 
                         </div>
 
+                        <button
+                          className="remove-item"
+                          onClick={() => removeFromCart(itemKey)}
+                          aria-label={`Remove ${item.food.name}`}
+                          title="Remove item"
+                        >
+                          ×
+                        </button>
+
                       </div>
 
-                      <button
-                        className="remove-item"
-                        onClick={() =>
-                          removeFromCart(
-                            item.food.id,
-                            item.spiceLevel
-                          )
-                        }
-                        aria-label={`Remove ${item.food.name}`}
-                        title="Remove item"
-                      >
-                        ×
-                      </button>
-
-                    </div>
-
-                  ))}
+                    );
+                  })}
 
                 </div>
 
@@ -1019,9 +1174,9 @@ function App() {
                 </div>
 
                 <p className="cart-note">
+                  Add-on prices are included in the subtotal.
                   Preparation time is a preliminary estimate
                   assuming dishes can be prepared simultaneously.
-                  Actual timing depends on kitchen workload.
                 </p>
 
                 <button
