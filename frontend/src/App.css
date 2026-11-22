@@ -1651,3 +1651,130 @@ img {
     padding-top: 5px;
   }
 }
+
+/* ==========================================
+   MILESTONE 8 - CUSTOMER ORDER SUBMISSION
+========================================== */
+
+.order-note-field {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  margin: 20px 0;
+}
+
+.order-note-field label {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.order-note-field textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 13px;
+  border: 1px solid #ddd;
+  border-radius: 10px;
+  font-family: inherit;
+  font-size: 14px;
+  resize: vertical;
+}
+
+.order-note-field small {
+  color: #888;
+  text-align: right;
+}
+
+.order-submit-button {
+  width: 100%;
+  margin-top: 12px;
+}
+
+.order-submit-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.order-continue-button {
+  width: 100%;
+  padding: 13px;
+  margin-top: 10px;
+  background: transparent;
+  border: 1px solid #ddd;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.order-submit-error {
+  padding: 12px;
+  margin: 12px 0;
+  color: #b42318;
+  background: #fff1f0;
+  border: 1px solid #fecaca;
+  border-radius: 9px;
+  font-size: 14px;
+}
+
+.order-success-panel {
+  text-align: center;
+  padding: 25px 10px;
+}
+
+.order-success-icon {
+  width: 65px;
+  height: 65px;
+  margin: 0 auto 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: #e7f7ed;
+  color: #21864b;
+  font-size: 35px;
+  font-weight: bold;
+}
+
+.order-success-panel h3 {
+  font-size: 23px;
+  margin: 12px 0;
+}
+
+.order-success-details {
+  margin: 24px 0;
+  padding: 16px;
+  background: #f8f8f6;
+  border-radius: 12px;
+  text-align: left;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+}
+
+.order-success-details div {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  overflow-wrap: anywhere;
+}
+
+.order-success-details span {
+  color: #777;
+  font-size: 12px;
+}
+
+.order-success-details strong {
+  font-size: 14px;
+}
+
+.order-pending-note {
+  padding: 12px;
+  background: #fff8e8;
+  border-radius: 9px;
+  font-size: 14px;
+}
+
+@media (max-width: 480px) {
+  .order-success-details {
+    grid-template-columns: 1fr;
+  }
+}

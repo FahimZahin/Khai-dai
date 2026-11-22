@@ -1,0 +1,3155 @@
+========== FRONTEND APP.TSX ==========
+import { useMemo, useState } from "react";
+
+import "./App.css";
+
+import AdminQrPage from "./AdminQrPage";
+
+import TableSessionBanner from "./TableSessionBanner";
+
+// ==========================================
+
+// TYPES
+
+// ==========================================
+
+type SpiceLevel = "Not Spicy" | "Mild" | "Medium" | "Hot";
+
+type AddOn = {
+
+  id: string;
+
+  name: string;
+
+  price: number;
+
+};
+
+type Food = {
+
+  id: number;
+
+  name: string;
+
+  category: string;
+
+  description: string;
+
+  price: number;
+
+  time: number;
+
+  defaultSpice: SpiceLevel;
+
+  spiceOptions: SpiceLevel[];
+
+  ingredients: string[];
+
+  allergens: string[];
+
+  addons: AddOn[];
+
+  image: string;
+
+};
+
+type CartItem = {
+
+  food: Food;
+
+  quantity: number;
+
+  spiceLevel: SpiceLevel;
+
+  selectedAddons: AddOn[];
+
+};
+
+const allSpiceLevels: SpiceLevel[] = [
+
+  "Not Spicy",
+
+  "Mild",
+
+  "Medium",
+
+  "Hot",
+
+];
+
+// ==========================================
+
+// HELPER FUNCTIONS
+
+// ==========================================
+
+const getAddOnTotal = (addons: AddOn[]) =>
+
+  addons.reduce((total, addon) => total + addon.price, 0);
+
+const getCartItemKey = (item: CartItem) => {
+
+  const addonIds = item.selectedAddons
+
+    .map((addon) => addon.id)
+
+    .sort()
+
+    .join(",");
+
+  return `${item.food.id}|${item.spiceLevel}|${addonIds}`;
+
+};
+
+// ==========================================
+
+// FOOD DATA
+
+// ==========================================
+
+const foods: Food[] = [
+
+  {
+
+    id: 1,
+
+    name: "Chicken Biryani",
+
+    category: "Main Course",
+
+    description:
+
+      "Fragrant basmati rice with tender chicken and aromatic spices.",
+
+    price: 320,
+
+    time: 25,
+
+    defaultSpice: "Medium",
+
+    spiceOptions: allSpiceLevels,
+
+    ingredients: [
+
+      "Basmati rice",
+
+      "Chicken",
+
+      "Yogurt",
+
+      "Onion",
+
+      "Ginger and garlic",
+
+      "Biryani spices",
+
+      "Fresh coriander",
+
+    ],
+
+    allergens: ["Milk (yogurt)"],
+
+    addons: [
+
+      { id: "extra-chicken", name: "Extra chicken", price: 120 },
+
+      { id: "boiled-egg", name: "Boiled egg", price: 25 },
+
+      { id: "extra-rice", name: "Extra rice", price: 60 },
+
+      { id: "raita", name: "Extra raita", price: 30 },
+
+    ],
+
+    image:
+
+      "https://images.unsplash.com/photo-1559528896-c5310744cce8?w=700&auto=format&fit=crop",
+
+  },
+
+  {
+
+    id: 2,
+
+    name: "Beef Burger",
+
+    category: "Fast Food",
+
+    description:
+
+      "Juicy beef patty with fresh lettuce, cheese and special sauce.",
+
+    price: 280,
+
+    time: 15,
+
+    defaultSpice: "Mild",
+
+    spiceOptions: allSpiceLevels,
+
+    ingredients: [
+
+      "Beef patty",
+
+      "Burger bun",
+
+      "Cheese",
+
+      "Lettuce",
+
+      "Tomato",
+
+      "Onion",
+
+      "Special sauce",
+
+    ],
+
+    allergens: [
+
+      "Wheat (bun)",
+
+      "Milk (cheese)",
+
+      "Check sauce ingredients",
+
+    ],
+
+    addons: [
+
+      { id: "extra-cheese", name: "Extra cheese", price: 40 },
+
+      { id: "extra-patty", name: "Extra beef patty", price: 120 },
+
+      { id: "jalapenos", name: "Jalapeños", price: 25 },
+
+      { id: "extra-sauce", name: "Extra sauce", price: 20 },
+
+    ],
+
+    image:
+
+      "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=700",
+
+  },
+
+  {
+
+    id: 3,
+
+    name: "Chicken Pasta",
+
+    category: "Main Course",
+
+    description: "Creamy pasta with grilled chicken and herbs.",
+
+    price: 350,
+
+    time: 20,
+
+    defaultSpice: "Mild",
+
+    spiceOptions: allSpiceLevels,
+
+    ingredients: [
+
+      "Pasta",
+
+      "Chicken",
+
+      "Cream",
+
+      "Parmesan cheese",
+
+      "Garlic",
+
+      "Mixed herbs",
+
+    ],
+
+    allergens: ["Wheat", "Milk"],
+
+    addons: [
+
+      { id: "extra-chicken", name: "Extra chicken", price: 100 },
+
+      { id: "extra-cheese", name: "Extra cheese", price: 40 },
+
+      { id: "mushrooms", name: "Mushrooms", price: 50 },
+
+      { id: "garlic-bread", name: "Garlic bread", price: 60 },
+
+    ],
+
+    image:
+
+      "https://images.unsplash.com/photo-1473093295043-cdd812d0e601?w=700",
+
+  },
+
+  {
+
+    id: 4,
+
+    name: "Grilled Chicken",
+
+    category: "Main Course",
+
+    description:
+
+      "Tender grilled chicken served with fresh vegetables.",
+
+    price: 420,
+
+    time: 30,
+
+    defaultSpice: "Medium",
+
+    spiceOptions: allSpiceLevels,
+
+    ingredients: [
+
+      "Chicken",
+
+      "Olive oil",
+
+      "Garlic",
+
+      "Lemon",
+
+      "Mixed herbs",
+
+      "Seasonal vegetables",
+
+    ],
+
+    allergens: ["Verify marinade and seasoning"],
+
+    addons: [
+
+      { id: "extra-chicken", name: "Extra chicken portion", price: 150 },
+
+      { id: "extra-vegetables", name: "Extra vegetables", price: 50 },
+
+      { id: "mashed-potatoes", name: "Mashed potatoes", price: 60 },
+
+      { id: "extra-sauce", name: "Extra sauce", price: 25 },
+
+    ],
+
+    image:
+
+      "https://images.unsplash.com/photo-1532550907401-a500c9a57435?w=700",
+
+  },
+
+  {
+
+    id: 5,
+
+    name: "French Fries",
+
+    category: "Snacks",
+
+    description:
+
+      "Golden crispy potato fries with a delicious dip.",
+
+    price: 150,
+
+    time: 10,
+
+    defaultSpice: "Not Spicy",
+
+    spiceOptions: allSpiceLevels,
+
+    ingredients: [
+
+      "Potatoes",
+
+      "Vegetable oil",
+
+      "Salt",
+
+    ],
+
+    allergens: ["Check shared fryer and seasoning"],
+
+    addons: [
+
+      { id: "extra-fries", name: "Extra fries", price: 80 },
+
+      { id: "cheese-dip", name: "Cheese dip", price: 30 },
+
+      { id: "spicy-seasoning", name: "Spicy seasoning", price: 15 },
+
+    ],
+
+    image:
+
+      "https://images.unsplash.com/photo-1573080496219-bb080dd4f877?w=700",
+
+  },
+
+  {
+
+    id: 6,
+
+    name: "Fresh Lemonade",
+
+    category: "Drinks",
+
+    description:
+
+      "Refreshing fresh lemon juice with a hint of mint.",
+
+    price: 100,
+
+    time: 5,
+
+    defaultSpice: "Not Spicy",
+
+    spiceOptions: ["Not Spicy"],
+
+    ingredients: [
+
+      "Fresh lemon",
+
+      "Water",
+
+      "Sugar",
+
+      "Mint leaves",
+
+      "Ice",
+
+    ],
+
+    allergens: ["Not yet verified"],
+
+    addons: [
+
+      { id: "extra-lemon", name: "Extra lemon", price: 15 },
+
+      { id: "extra-mint", name: "Extra mint", price: 10 },
+
+      { id: "extra-sugar", name: "Extra sugar", price: 0 },
+
+    ],
+
+    image:
+
+      "https://images.unsplash.com/photo-1656936637945-571e3f0893f9?w=700&auto=format&fit=crop",
+
+  },
+
+];
+
+// ==========================================
+
+// CATEGORIES
+
+// ==========================================
+
+const categories = [
+
+  "All",
+
+  "Main Course",
+
+  "Fast Food",
+
+  "Snacks",
+
+  "Drinks",
+
+];
+
+// ==========================================
+
+// MAIN APP
+
+// ==========================================
+
+function CustomerApp() {
+
+  const [activeCategory, setActiveCategory] = useState("All");
+
+  const [search, setSearch] = useState("");
+
+  const [cartItems, setCartItems] = useState<CartItem[]>([]);
+
+  const [isCartOpen, setIsCartOpen] = useState(false);
+
+  const [selectedFood, setSelectedFood] = useState<Food | null>(null);
+
+  const [selectedSpiceLevel, setSelectedSpiceLevel] =
+
+    useState<SpiceLevel>("Medium");
+
+  const [selectedAddons, setSelectedAddons] = useState<AddOn[]>([]);
+
+  // ==========================================
+
+  // OPEN FOOD DETAILS
+
+  // ==========================================
+
+  const openFoodDetails = (food: Food) => {
+
+    setSelectedFood(food);
+
+    setSelectedSpiceLevel(food.defaultSpice);
+
+    setSelectedAddons([]);
+
+  };
+
+  // ==========================================
+
+  // TOGGLE ADD-ON
+
+  // ==========================================
+
+  const toggleAddon = (addon: AddOn) => {
+
+    setSelectedAddons((current) => {
+
+      const alreadySelected = current.some(
+
+        (item) => item.id === addon.id
+
+      );
+
+      if (alreadySelected) {
+
+        return current.filter((item) => item.id !== addon.id);
+
+      }
+
+      return [...current, addon];
+
+    });
+
+  };
+
+  // ==========================================
+
+  // ADD FOOD TO CART
+
+  // ==========================================
+
+  const addToCart = (
+
+    food: Food,
+
+    spiceLevel: SpiceLevel,
+
+    addons: AddOn[]
+
+  ) => {
+
+    const normalizedAddons = [...addons].sort((a, b) =>
+
+      a.id.localeCompare(b.id)
+
+    );
+
+    const newItem: CartItem = {
+
+      food,
+
+      quantity: 1,
+
+      spiceLevel,
+
+      selectedAddons: normalizedAddons,
+
+    };
+
+    const newKey = getCartItemKey(newItem);
+
+    setCartItems((currentItems) => {
+
+      const existingItem = currentItems.find(
+
+        (item) => getCartItemKey(item) === newKey
+
+      );
+
+      if (existingItem) {
+
+        return currentItems.map((item) =>
+
+          getCartItemKey(item) === newKey
+
+            ? { ...item, quantity: item.quantity + 1 }
+
+            : item
+
+        );
+
+      }
+
+      return [...currentItems, newItem];
+
+    });
+
+  };
+
+  // ==========================================
+
+  // UPDATE CART QUANTITY
+
+  // ==========================================
+
+  const updateCartQuantity = (
+
+    itemKey: string,
+
+    change: number
+
+  ) => {
+
+    setCartItems((currentItems) =>
+
+      currentItems
+
+        .map((item) =>
+
+          getCartItemKey(item) === itemKey
+
+            ? { ...item, quantity: item.quantity + change }
+
+            : item
+
+        )
+
+        .filter((item) => item.quantity > 0)
+
+    );
+
+  };
+
+  // ==========================================
+
+  // REMOVE CART ITEM
+
+  // ==========================================
+
+  const removeFromCart = (itemKey: string) => {
+
+    setCartItems((currentItems) =>
+
+      currentItems.filter(
+
+        (item) => getCartItemKey(item) !== itemKey
+
+      )
+
+    );
+
+  };
+
+  // ==========================================
+
+  // CHANGE SPICE LEVEL IN CART
+
+  // ==========================================
+
+  const updateCartSpice = (
+
+    itemKey: string,
+
+    newSpice: SpiceLevel
+
+  ) => {
+
+    setCartItems((currentItems) => {
+
+      const sourceItem = currentItems.find(
+
+        (item) => getCartItemKey(item) === itemKey
+
+      );
+
+      if (!sourceItem || sourceItem.spiceLevel === newSpice) {
+
+        return currentItems;
+
+      }
+
+      const updatedItem: CartItem = {
+
+        ...sourceItem,
+
+        spiceLevel: newSpice,
+
+      };
+
+      const targetKey = getCartItemKey(updatedItem);
+
+      const targetExists = currentItems.some(
+
+        (item) => getCartItemKey(item) === targetKey
+
+      );
+
+      if (targetExists) {
+
+        return currentItems
+
+          .filter((item) => getCartItemKey(item) !== itemKey)
+
+          .map((item) =>
+
+            getCartItemKey(item) === targetKey
+
+              ? {
+
+                  ...item,
+
+                  quantity:
+
+                    item.quantity + sourceItem.quantity,
+
+                }
+
+              : item
+
+          );
+
+      }
+
+      return currentItems.map((item) =>
+
+        getCartItemKey(item) === itemKey ? updatedItem : item
+
+      );
+
+    });
+
+  };
+
+  // ==========================================
+
+  // CART CALCULATIONS
+
+  // ==========================================
+
+  const cartCount = cartItems.reduce(
+
+    (total, item) => total + item.quantity,
+
+    0
+
+  );
+
+  const subtotal = cartItems.reduce(
+
+    (total, item) => {
+
+      const unitPrice =
+
+        item.food.price + getAddOnTotal(item.selectedAddons);
+
+      return total + unitPrice * item.quantity;
+
+    },
+
+    0
+
+  );
+
+  const estimatedPrepTime =
+
+    cartItems.length > 0
+
+      ? Math.max(...cartItems.map((item) => item.food.time))
+
+      : 0;
+
+  const selectedAddOnTotal = getAddOnTotal(selectedAddons);
+
+  // ==========================================
+
+  // FILTER FOOD
+
+  // ==========================================
+
+  const filteredFoods = useMemo(() => {
+
+    return foods.filter((food) => {
+
+      const matchesCategory =
+
+        activeCategory === "All" ||
+
+        food.category === activeCategory;
+
+      const matchesSearch = food.name
+
+        .toLowerCase()
+
+        .includes(search.toLowerCase());
+
+      return matchesCategory && matchesSearch;
+
+    });
+
+  }, [activeCategory, search]);
+
+  // ==========================================
+
+  // SCROLL TO MENU
+
+  // ==========================================
+
+  const scrollToMenu = () => {
+
+    document.getElementById("menu")?.scrollIntoView({
+
+      behavior: "smooth",
+
+    });
+
+  };
+
+  // ==========================================
+
+  // RENDER
+
+  // ==========================================
+
+  return (
+
+    <div className="app">
+
+      {/* NAVBAR */}
+
+      <header className="navbar">
+
+        <a className="logo" href="#">
+
+          Khai<span>-</span>Dai
+
+          <span className="logo-dot">.</span>
+
+        </a>
+
+        <nav className="nav-links">
+
+          <a href="#home">Home</a>
+
+          <a href="#menu">Our Menu</a>
+
+          <a href="#about">About Us</a>
+
+        </nav>
+
+        <button
+
+          className="cart-button"
+
+          onClick={() => setIsCartOpen(true)}
+
+        >
+
+          <span>🛒</span>
+
+          My Order
+
+          <span className="cart-count">{cartCount}</span>
+
+        </button>
+
+      </header>
+
+      <main>
+
+        {/* HERO */}
+
+        <section className="hero" id="home">
+
+          <div className="hero-content">
+
+            <span className="eyebrow">
+
+              GOOD FOOD. GOOD MOOD.
+
+            </span>
+
+            <h1>
+
+              Delicious food,
+
+              <br />
+
+              <span>made with love.</span>
+
+            </h1>
+
+            <p>
+
+              Fresh ingredients, amazing flavours and
+
+              unforgettable meals. Discover your next
+
+              favourite dish at Khai-Dai.
+
+            </p>
+
+            <button
+
+              className="primary-button"
+
+              onClick={scrollToMenu}
+
+            >
+
+              Explore Our Menu <span>→</span>
+
+            </button>
+
+            <div className="hero-note">
+
+              <span>✦</span>
+
+              Freshly prepared for you
+
+            </div>
+
+          </div>
+
+          <div className="hero-image">
+
+            <img
+
+              src="https://images.unsplash.com/photo-1547592180-85f173990554?w=1000"
+
+              alt="Freshly prepared restaurant food"
+
+            />
+
+            <div className="floating-card">
+
+              <span>🍽️</span>
+
+              <div>
+
+                <strong>Made fresh</strong>
+
+                <small>Every single order</small>
+
+              </div>
+
+            </div>
+
+          </div>
+
+        </section>
+
+        {/* MENU */}
+
+        <section className="menu-section" id="menu">
+
+          <div className="section-heading">
+
+            <div>
+
+              <span className="eyebrow">
+
+                DISCOVER OUR FOOD
+
+              </span>
+
+              <h2>
+
+                Explore our menu<span>.</span>
+
+              </h2>
+
+              <p>
+
+                Something delicious is waiting for you.
+
+              </p>
+
+            </div>
+
+            <div className="search-box">
+
+              <span>⌕</span>
+
+              <input
+
+                type="search"
+
+                placeholder="Search your favourite food..."
+
+                value={search}
+
+                onChange={(e) => setSearch(e.target.value)}
+
+              />
+
+            </div>
+
+          </div>
+
+          {/* CATEGORY FILTER */}
+
+          <div className="category-list">
+
+            {categories.map((category) => (
+
+              <button
+
+                key={category}
+
+                className={
+
+                  activeCategory === category
+
+                    ? "category-button active"
+
+                    : "category-button"
+
+                }
+
+                onClick={() => setActiveCategory(category)}
+
+              >
+
+                {category}
+
+              </button>
+
+            ))}
+
+          </div>
+
+          {/* FOOD CARDS */}
+
+          <div className="food-grid">
+
+            {filteredFoods.map((food) => (
+
+              <article
+
+                className="food-card"
+
+                key={food.id}
+
+              >
+
+                <div className="food-image">
+
+                  <img
+
+                    src={food.image}
+
+                    alt={food.name}
+
+                  />
+
+                  <span className="food-time">
+
+                    ◷ {food.time} min
+
+                  </span>
+
+                </div>
+
+                <div className="food-info">
+
+                  <span className="food-category">
+
+                    {food.category}
+
+                  </span>
+
+                  <h3>{food.name}</h3>
+
+                  <p>{food.description}</p>
+
+                  <div className="food-meta">
+
+                    <span>🌶️ {food.defaultSpice}</span>
+
+                    <strong>৳{food.price}</strong>
+
+                  </div>
+
+                  <button
+
+                    className="details-button"
+
+                    onClick={() => openFoodDetails(food)}
+
+                  >
+
+                    View ingredients & details
+
+                  </button>
+
+                  <button
+
+                    className="add-button"
+
+                    onClick={() => openFoodDetails(food)}
+
+                  >
+
+                    + Customize & add to order
+
+                  </button>
+
+                </div>
+
+              </article>
+
+            ))}
+
+          </div>
+
+          {filteredFoods.length === 0 && (
+
+            <div className="empty-state">
+
+              <span>🍽️</span>
+
+              <h3>No dishes found</h3>
+
+              <p>Try searching for something else.</p>
+
+            </div>
+
+          )}
+
+        </section>
+
+        {/* ABOUT */}
+
+        <section className="about-section" id="about">
+
+          <span className="eyebrow">
+
+            WELCOME TO KHAI-DAI
+
+          </span>
+
+          <h2>
+
+            Good food brings people together.
+
+          </h2>
+
+          <p>
+
+            We believe every meal should be a memorable
+
+            experience. Explore our menu and let us prepare
+
+            something special for you.
+
+          </p>
+
+        </section>
+
+      </main>
+
+      {/* =================================
+
+          FOOD DETAILS, SPICE AND ADD-ONS
+
+      ================================= */}
+
+      {selectedFood && (
+
+        <div
+
+          className="modal-backdrop"
+
+          onClick={() => setSelectedFood(null)}
+
+        >
+
+          <div
+
+            className="food-modal"
+
+            role="dialog"
+
+            aria-modal="true"
+
+            aria-labelledby="food-modal-title"
+
+            onClick={(e) => e.stopPropagation()}
+
+          >
+
+            <button
+
+              className="modal-close"
+
+              onClick={() => setSelectedFood(null)}
+
+              aria-label="Close food details"
+
+            >
+
+              ×
+
+            </button>
+
+            <img
+
+              className="modal-food-image"
+
+              src={selectedFood.image}
+
+              alt={selectedFood.name}
+
+            />
+
+            <div className="modal-content">
+
+              <span className="food-category">
+
+                {selectedFood.category}
+
+              </span>
+
+              <h2 id="food-modal-title">
+
+                {selectedFood.name}
+
+              </h2>
+
+              <p>{selectedFood.description}</p>
+
+              <div className="detail-grid">
+
+                <div className="detail-item">
+
+                  <span>Preparation time</span>
+
+                  <strong>
+
+                    ◷ {selectedFood.time} minutes
+
+                  </strong>
+
+                </div>
+
+                <div className="detail-item">
+
+                  <span>Base price</span>
+
+                  <strong>
+
+                    ৳{selectedFood.price}
+
+                  </strong>
+
+                </div>
+
+              </div>
+
+              {/* SPICE SELECTOR */}
+
+              <div className="spice-selector">
+
+                <h3>🌶️ Choose your spice level</h3>
+
+                <p>
+
+                  How spicy would you like your food?
+
+                </p>
+
+                <div className="spice-options">
+
+                  {selectedFood.spiceOptions.map((level) => (
+
+                    <button
+
+                      key={level}
+
+                      type="button"
+
+                      className={
+
+                        selectedSpiceLevel === level
+
+                          ? "spice-option active"
+
+                          : "spice-option"
+
+                      }
+
+                      onClick={() => setSelectedSpiceLevel(level)}
+
+                    >
+
+                      {level === "Not Spicy"
+
+                        ? "😊"
+
+                        : level === "Mild"
+
+                        ? "🌶️"
+
+                        : level === "Medium"
+
+                        ? "🌶️🌶️"
+
+                        : "🌶️🌶️🌶️"}
+
+                      <span>{level}</span>
+
+                    </button>
+
+                  ))}
+
+                </div>
+
+                <p className="spice-note">
+
+                  Selected: <strong>{selectedSpiceLevel}</strong>
+
+                </p>
+
+              </div>
+
+              {/* ADD-ON SELECTOR */}
+
+              <div className="addon-selector">
+
+                <div className="addon-heading">
+
+                  <div>
+
+                    <h3>➕ Customize your food</h3>
+
+                    <p>
+
+                      Choose any extras you would like.
+
+                    </p>
+
+                  </div>
+
+                  <span className="optional-label">
+
+                    OPTIONAL
+
+                  </span>
+
+                </div>
+
+                <div className="addon-options">
+
+                  {selectedFood.addons.map((addon) => {
+
+                    const isSelected = selectedAddons.some(
+
+                      (item) => item.id === addon.id
+
+                    );
+
+                    return (
+
+                      <label
+
+                        key={addon.id}
+
+                        className={
+
+                          isSelected
+
+                            ? "addon-option selected"
+
+                            : "addon-option"
+
+                        }
+
+                      >
+
+                        <input
+
+                          type="checkbox"
+
+                          checked={isSelected}
+
+                          onChange={() => toggleAddon(addon)}
+
+                        />
+
+                        <span className="addon-option-info">
+
+                          <span className="addon-name">
+
+                            {addon.name}
+
+                          </span>
+
+                          <span className="addon-price">
+
+                            {addon.price === 0
+
+                              ? "Free"
+
+                              : `+৳${addon.price}`}
+
+                          </span>
+
+                        </span>
+
+                      </label>
+
+                    );
+
+                  })}
+
+                </div>
+
+                <div className="addon-total">
+
+                  <span>Selected add-ons</span>
+
+                  <strong>
+
+                    +৳{selectedAddOnTotal}
+
+                  </strong>
+
+                </div>
+
+              </div>
+
+              {/* INGREDIENTS */}
+
+              <div className="detail-list">
+
+                <h3>🥗 Ingredients</h3>
+
+                <ul>
+
+                  {selectedFood.ingredients.map((ingredient) => (
+
+                    <li key={ingredient}>{ingredient}</li>
+
+                  ))}
+
+                </ul>
+
+              </div>
+
+              {/* ALLERGENS */}
+
+              <div className="detail-list allergen-section">
+
+                <h3>⚠️ Allergens & kitchen checks</h3>
+
+                <ul>
+
+                  {selectedFood.allergens.map((allergen) => (
+
+                    <li key={allergen}>{allergen}</li>
+
+                  ))}
+
+                </ul>
+
+              </div>
+
+              <p className="demo-warning">
+
+                Sample menu information and add-on prices.
+
+                Confirm actual ingredients, allergens and
+
+                available customizations with restaurant staff.
+
+              </p>
+
+              {/* FINAL PRICE */}
+
+              <div className="customized-price">
+
+                <span>Total per serving</span>
+
+                <strong>
+
+                  ৳{selectedFood.price + selectedAddOnTotal}
+
+                </strong>
+
+              </div>
+
+              <button
+
+                className="modal-add-button"
+
+                onClick={() => {
+
+                  addToCart(
+
+                    selectedFood,
+
+                    selectedSpiceLevel,
+
+                    selectedAddons
+
+                  );
+
+                  setSelectedFood(null);
+
+                }}
+
+              >
+
+                + Add to order — ৳
+
+                {selectedFood.price + selectedAddOnTotal}
+
+              </button>
+
+            </div>
+
+          </div>
+
+        </div>
+
+      )}
+
+      {/* =================================
+
+          SHOPPING CART
+
+      ================================= */}
+
+      {isCartOpen && (
+
+        <div
+
+          className="modal-backdrop"
+
+          onClick={() => setIsCartOpen(false)}
+
+        >
+
+          <section
+
+            className="cart-modal"
+
+            role="dialog"
+
+            aria-modal="true"
+
+            aria-labelledby="cart-title"
+
+            onClick={(e) => e.stopPropagation()}
+
+          >
+
+            {/* CART HEADER */}
+
+            <div className="cart-header">
+
+              <div>
+
+                <span className="eyebrow">
+
+                  YOUR SELECTION
+
+                </span>
+
+                <h2 id="cart-title">My Order</h2>
+
+              </div>
+
+              <button
+
+                className="modal-close"
+
+                onClick={() => setIsCartOpen(false)}
+
+                aria-label="Close cart"
+
+              >
+
+                ×
+
+              </button>
+
+            </div>
+
+            {/* EMPTY CART */}
+
+            {cartItems.length === 0 ? (
+
+              <div className="empty-cart">
+
+                <span>🛒</span>
+
+                <h3>Your cart is empty</h3>
+
+                <p>
+
+                  Discover something delicious from our menu.
+
+                </p>
+
+                <button
+
+                  className="modal-add-button"
+
+                  onClick={() => {
+
+                    setIsCartOpen(false);
+
+                    scrollToMenu();
+
+                  }}
+
+                >
+
+                  Explore Menu
+
+                </button>
+
+              </div>
+
+            ) : (
+
+              <>
+
+                {/* CART ITEMS */}
+
+                <div className="cart-items">
+
+                  {cartItems.map((item) => {
+
+                    const itemKey = getCartItemKey(item);
+
+                    const addonTotal = getAddOnTotal(
+
+                      item.selectedAddons
+
+                    );
+
+                    const unitPrice =
+
+                      item.food.price + addonTotal;
+
+                    return (
+
+                      <div
+
+                        className="cart-item"
+
+                        key={itemKey}
+
+                      >
+
+                        <img
+
+                          src={item.food.image}
+
+                          alt={item.food.name}
+
+                        />
+
+                        <div className="cart-item-info">
+
+                          <h3>{item.food.name}</h3>
+
+                          <strong>
+
+                            ৳{unitPrice * item.quantity}
+
+                          </strong>
+
+                          <p className="cart-spice-label">
+
+                            Spice level: {item.spiceLevel}
+
+                          </p>
+
+                          {/* CHANGE SPICE */}
+
+                          <label className="cart-spice-control">
+
+                            <span>Change spice:</span>
+
+                            <select
+
+                              value={item.spiceLevel}
+
+                              onChange={(e) =>
+
+                                updateCartSpice(
+
+                                  itemKey,
+
+                                  e.target.value as SpiceLevel
+
+                                )
+
+                              }
+
+                            >
+
+                              {item.food.spiceOptions.map((level) => (
+
+                                <option key={level} value={level}>
+
+                                  {level}
+
+                                </option>
+
+                              ))}
+
+                            </select>
+
+                          </label>
+
+                          {/* SELECTED ADD-ONS */}
+
+                          {item.selectedAddons.length > 0 && (
+
+                            <div className="cart-addon-list">
+
+                              <span>Extras:</span>
+
+                              {item.selectedAddons.map((addon) => (
+
+                                <p key={addon.id}>
+
+                                  + {addon.name}
+
+                                  {addon.price > 0
+
+                                    ? ` (৳${addon.price})`
+
+                                    : " (Free)"}
+
+                                </p>
+
+                              ))}
+
+                            </div>
+
+                          )}
+
+                          <div className="quantity-controls">
+
+                            <button
+
+                              onClick={() =>
+
+                                updateCartQuantity(itemKey, -1)
+
+                              }
+
+                              aria-label={`Decrease ${item.food.name} quantity`}
+
+                            >
+
+                              −
+
+                            </button>
+
+                            <span>{item.quantity}</span>
+
+                            <button
+
+                              onClick={() =>
+
+                                updateCartQuantity(itemKey, 1)
+
+                              }
+
+                              aria-label={`Increase ${item.food.name} quantity`}
+
+                            >
+
+                              +
+
+                            </button>
+
+                          </div>
+
+                        </div>
+
+                        <button
+
+                          className="remove-item"
+
+                          onClick={() => removeFromCart(itemKey)}
+
+                          aria-label={`Remove ${item.food.name}`}
+
+                          title="Remove item"
+
+                        >
+
+                          ×
+
+                        </button>
+
+                      </div>
+
+                    );
+
+                  })}
+
+                </div>
+
+                {/* CART SUMMARY */}
+
+                <div className="cart-summary">
+
+                  <div>
+
+                    <span>Total items</span>
+
+                    <strong>{cartCount}</strong>
+
+                  </div>
+
+                  <div>
+
+                    <span>Subtotal</span>
+
+                    <strong>৳{subtotal}</strong>
+
+                  </div>
+
+                  <div>
+
+                    <span>Estimated preparation</span>
+
+                    <strong>{estimatedPrepTime} min</strong>
+
+                  </div>
+
+                  <div className="cart-total">
+
+                    <span>Total</span>
+
+                    <strong>৳{subtotal}</strong>
+
+                  </div>
+
+                </div>
+
+                <p className="cart-note">
+
+                  Add-on prices are included in the subtotal.
+
+                  Preparation time is a preliminary estimate
+
+                  assuming dishes can be prepared simultaneously.
+
+                </p>
+
+                <button
+
+                  className="modal-add-button"
+
+                  onClick={() => setIsCartOpen(false)}
+
+                >
+
+                  Continue browsing
+
+                </button>
+
+              </>
+
+            )}
+
+          </section>
+
+        </div>
+
+      )}
+
+      {/* FOOTER */}
+
+      <footer className="footer">
+
+        <a className="logo" href="#">
+
+          Khai<span>-</span>Dai
+
+          <span className="logo-dot">.</span>
+
+        </a>
+
+        <p>Made with ❤️ for food lovers.</p>
+
+        <small>
+
+          © 2026 Khai-Dai. All rights reserved.
+
+        </small>
+
+      </footer>
+
+    </div>
+
+  );
+
+}
+
+// ==========================================
+// MAIN APPLICATION ROUTING
+// ==========================================
+
+function App() {
+  // Administrator QR management page
+  if (window.location.pathname === "/admin/qr") {
+    return <AdminQrPage />;
+  }
+
+  // Customer restaurant application
+  return (
+    <>
+      <TableSessionBanner />
+      <CustomerApp />
+    </>
+  );
+}
+
+export default App;
+========== FRONTEND MAIN.TSX ==========
+import { StrictMode } from 'react'
+import { createRoot } from 'react-dom/client'
+import './index.css'
+import App from './App.tsx'
+
+createRoot(document.getElementById('root')!).render(
+  <StrictMode>
+    <App />
+  </StrictMode>,
+)
+========== BACKEND JAVA SOURCE FILES ==========
+
+========== FILE: C:\Users\Zahin\Documents\Projects\Khai-dai\backend\src\main\java\com\khaidai\backend\BackendApplication.java ==========
+package com.khaidai.backend;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+
+@SpringBootApplication
+public class BackendApplication {
+
+	public static void main(String[] args) {
+		SpringApplication.run(BackendApplication.class, args);
+	}
+
+}
+
+========== FILE: C:\Users\Zahin\Documents\Projects\Khai-dai\backend\src\main\java\com\khaidai\backend\controller\OrderController.java ==========
+
+package com.khaidai.backend.controller;
+
+import com.khaidai.backend.dto.CreateOrderRequest;
+import com.khaidai.backend.dto.OrderResponse;
+import com.khaidai.backend.service.OrderService;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("/api/orders")
+@CrossOrigin(
+        originPatterns = {
+                "http://localhost:*",
+                "http://127.0.0.1:*"
+        }
+)
+public class OrderController {
+
+    private final OrderService orderService;
+
+    public OrderController(OrderService orderService) {
+        this.orderService = orderService;
+    }
+
+    // ==========================================
+    // CUSTOMER SUBMITS ORDER
+    // ==========================================
+
+    @PostMapping
+    public ResponseEntity<OrderResponse> createOrder(
+            @RequestBody CreateOrderRequest request
+    ) {
+
+        OrderResponse response =
+                orderService.createOrder(request);
+
+        return ResponseEntity
+                .status(HttpStatus.CREATED)
+                .body(response);
+    }
+
+    // ==========================================
+    // CUSTOMER TRACKS ORDER
+    // ==========================================
+
+    @GetMapping("/{orderNumber}")
+    public ResponseEntity<OrderResponse> getOrder(
+            @PathVariable String orderNumber
+    ) {
+
+        return ResponseEntity.ok(
+                orderService.getOrder(orderNumber)
+        );
+    }
+}
+
+========== FILE: C:\Users\Zahin\Documents\Projects\Khai-dai\backend\src\main\java\com\khaidai\backend\controller\TableAdminController.java ==========
+
+package com.khaidai.backend.controller;
+
+import com.khaidai.backend.dto.TableQrAdminResponse;
+import com.khaidai.backend.service.TableAdminService;
+
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/api/admin/tables")
+@CrossOrigin(
+        originPatterns = {
+                "http://localhost:*",
+                "http://127.0.0.1:*"
+        }
+)
+public class TableAdminController {
+
+    private final TableAdminService tableAdminService;
+
+    public TableAdminController(
+            TableAdminService tableAdminService
+    ) {
+        this.tableAdminService = tableAdminService;
+    }
+
+    @GetMapping("/qr")
+    public List<TableQrAdminResponse> getQrCodes(
+            @RequestHeader(
+                    value = "X-Admin-Key",
+                    required = false
+            )
+            String adminKey
+    ) {
+
+        return tableAdminService.getAllQrCodes(adminKey);
+    }
+}
+
+========== FILE: C:\Users\Zahin\Documents\Projects\Khai-dai\backend\src\main\java\com\khaidai\backend\controller\TableController.java ==========
+
+package com.khaidai.backend.controller;
+
+import com.khaidai.backend.dto.TableResponse;
+import com.khaidai.backend.dto.TableValidationResponse;
+import com.khaidai.backend.service.TableService;
+
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/api/tables")
+@CrossOrigin(
+        originPatterns = {
+                "http://localhost:*",
+                "http://127.0.0.1:*"
+        }
+)
+public class TableController {
+
+    private final TableService tableService;
+
+    public TableController(TableService tableService) {
+        this.tableService = tableService;
+    }
+
+    // GET all restaurant tables
+    @GetMapping
+    public List<TableResponse> getAllTables() {
+
+        return tableService.getAllTables();
+    }
+
+    // Validate a restaurant table QR code
+    @GetMapping("/validate/{token}")
+    public TableValidationResponse validateQrCode(
+            @PathVariable String token
+    ) {
+
+        return tableService.validateQrToken(token);
+    }
+}
+
+========== FILE: C:\Users\Zahin\Documents\Projects\Khai-dai\backend\src\main\java\com\khaidai\backend\dto\CreateOrderRequest.java ==========
+
+package com.khaidai.backend.dto;
+
+import java.math.BigDecimal;
+import java.util.List;
+
+public record CreateOrderRequest(
+        String tableToken,
+        String customerNote,
+        List<ItemRequest> items
+) {
+
+    public record ItemRequest(
+            Integer foodId,
+            String foodName,
+            Integer quantity,
+            BigDecimal unitPrice,
+            Integer preparationTimeMinutes,
+            String spiceLevel,
+            List<AddonRequest> selectedAddons
+    ) {
+    }
+
+    public record AddonRequest(
+            String name,
+            BigDecimal price
+    ) {
+    }
+}
+
+========== FILE: C:\Users\Zahin\Documents\Projects\Khai-dai\backend\src\main\java\com\khaidai\backend\dto\OrderResponse.java ==========
+
+package com.khaidai.backend.dto;
+
+import com.khaidai.backend.entity.OrderStatus;
+
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.util.List;
+
+public record OrderResponse(
+        Long id,
+        String orderNumber,
+        Integer tableNumber,
+        OrderStatus status,
+        BigDecimal totalAmount,
+        Integer totalPreparationWorkMinutes,
+        Instant createdAt,
+        List<ItemResponse> items
+) {
+
+    public record ItemResponse(
+            Integer foodId,
+            String foodName,
+            Integer quantity,
+            BigDecimal unitPrice,
+            BigDecimal lineTotal,
+            String spiceLevel,
+            Integer preparationTimeMinutes,
+            List<AddonResponse> selectedAddons
+    ) {
+    }
+
+    public record AddonResponse(
+            String name,
+            BigDecimal price
+    ) {
+    }
+}
+
+========== FILE: C:\Users\Zahin\Documents\Projects\Khai-dai\backend\src\main\java\com\khaidai\backend\dto\TableQrAdminResponse.java ==========
+
+package com.khaidai.backend.dto;
+
+public record TableQrAdminResponse(
+        Long id,
+        Integer tableNumber,
+        String qrToken,
+        boolean active
+) {
+}
+
+========== FILE: C:\Users\Zahin\Documents\Projects\Khai-dai\backend\src\main\java\com\khaidai\backend\dto\TableResponse.java ==========
+
+package com.khaidai.backend.dto;
+
+public record TableResponse(
+        Long id,
+        Integer tableNumber,
+        boolean active
+) {
+}
+
+========== FILE: C:\Users\Zahin\Documents\Projects\Khai-dai\backend\src\main\java\com\khaidai\backend\dto\TableValidationResponse.java ==========
+
+package com.khaidai.backend.dto;
+
+public record TableValidationResponse(
+        boolean valid,
+        Integer tableNumber,
+        String message
+) {
+}
+
+========== FILE: C:\Users\Zahin\Documents\Projects\Khai-dai\backend\src\main\java\com\khaidai\backend\entity\OrderItem.java ==========
+
+package com.khaidai.backend.entity;
+
+import jakarta.persistence.*;
+
+import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.List;
+
+@Entity
+@Table(name = "order_items")
+public class OrderItem {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "order_id", nullable = false)
+    private RestaurantOrder order;
+
+    @Column(name = "food_id", nullable = false)
+    private Integer foodId;
+
+    @Column(name = "food_name", nullable = false, length = 120)
+    private String foodName;
+
+    @Column(nullable = false)
+    private Integer quantity;
+
+    @Column(name = "unit_price", nullable = false, precision = 10, scale = 2)
+    private BigDecimal unitPrice;
+
+    @Column(name = "spice_level", nullable = false, length = 30)
+    private String spiceLevel;
+
+    @Column(name = "preparation_time_minutes", nullable = false)
+    private Integer preparationTimeMinutes;
+
+    @ElementCollection
+    @CollectionTable(
+        name = "order_item_addons",
+        joinColumns = @JoinColumn(name = "order_item_id")
+    )
+    private List<OrderItemAddon> selectedAddons = new ArrayList<>();
+
+    public OrderItem() {
+    }
+
+    public OrderItem(
+            Integer foodId,
+            String foodName,
+            Integer quantity,
+            BigDecimal unitPrice,
+            String spiceLevel,
+            Integer preparationTimeMinutes,
+            List<OrderItemAddon> selectedAddons
+    ) {
+        this.foodId = foodId;
+        this.foodName = foodName;
+        this.quantity = quantity;
+        this.unitPrice = unitPrice;
+        this.spiceLevel = spiceLevel;
+        this.preparationTimeMinutes = preparationTimeMinutes;
+
+        if (selectedAddons != null) {
+            this.selectedAddons = new ArrayList<>(selectedAddons);
+        }
+    }
+
+    public BigDecimal getLineTotal() {
+
+        BigDecimal addonTotal = selectedAddons.stream()
+                .map(OrderItemAddon::getPrice)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        return unitPrice.add(addonTotal)
+                .multiply(BigDecimal.valueOf(quantity));
+    }
+
+    public Long getId() {
+        return id;
+    }
+
+    public RestaurantOrder getOrder() {
+        return order;
+    }
+
+    public void setOrder(RestaurantOrder order) {
+        this.order = order;
+    }
+
+    public Integer getFoodId() {
+        return foodId;
+    }
+
+    public String getFoodName() {
+        return foodName;
+    }
+
+    public Integer getQuantity() {
+        return quantity;
+    }
+
+    public BigDecimal getUnitPrice() {
+        return unitPrice;
+    }
+
+    public String getSpiceLevel() {
+        return spiceLevel;
+    }
+
+    public Integer getPreparationTimeMinutes() {
+        return preparationTimeMinutes;
+    }
+
+    public List<OrderItemAddon> getSelectedAddons() {
+        return selectedAddons;
+    }
+}
+
+========== FILE: C:\Users\Zahin\Documents\Projects\Khai-dai\backend\src\main\java\com\khaidai\backend\entity\OrderItemAddon.java ==========
+
+package com.khaidai.backend.entity;
+
+import jakarta.persistence.*;
+import java.math.BigDecimal;
+
+@Embeddable
+public class OrderItemAddon {
+
+    @Column(name = "addon_name", nullable = false, length = 100)
+    private String name;
+
+    @Column(name = "addon_price", nullable = false, precision = 10, scale = 2)
+    private BigDecimal price;
+
+    public OrderItemAddon() {
+    }
+
+    public OrderItemAddon(String name, BigDecimal price) {
+        this.name = name;
+        this.price = price;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public BigDecimal getPrice() {
+        return price;
+    }
+}
+
+========== FILE: C:\Users\Zahin\Documents\Projects\Khai-dai\backend\src\main\java\com\khaidai\backend\entity\OrderStatus.java ==========
+
+package com.khaidai.backend.entity;
+
+public enum OrderStatus {
+    PENDING,
+    ACCEPTED,
+    REJECTED,
+    PREPARING,
+    READY,
+    SERVED,
+    CANCELLED
+}
+
+========== FILE: C:\Users\Zahin\Documents\Projects\Khai-dai\backend\src\main\java\com\khaidai\backend\entity\RestaurantOrder.java ==========
+
+package com.khaidai.backend.entity;
+
+import jakarta.persistence.*;
+
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
+
+@Entity
+@Table(name = "restaurant_orders")
+public class RestaurantOrder {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(name = "order_number", nullable = false, unique = true, length = 50)
+    private String orderNumber;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "table_id", nullable = false)
+    private RestaurantTable restaurantTable;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 30)
+    private OrderStatus status = OrderStatus.PENDING;
+
+    @Column(name = "total_amount", nullable = false, precision = 10, scale = 2)
+    private BigDecimal totalAmount = BigDecimal.ZERO;
+
+    @Column(name = "total_preparation_work_minutes", nullable = false)
+    private Integer totalPreparationWorkMinutes = 0;
+
+    @Column(name = "customer_note", length = 500)
+    private String customerNote;
+
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private Instant createdAt;
+
+    @Column(name = "updated_at", nullable = false)
+    private Instant updatedAt;
+
+    @OneToMany(
+        mappedBy = "order",
+        cascade = CascadeType.ALL,
+        orphanRemoval = true
+    )
+    private List<OrderItem> items = new ArrayList<>();
+
+    public RestaurantOrder() {
+    }
+
+    public RestaurantOrder(
+            String orderNumber,
+            RestaurantTable restaurantTable,
+            String customerNote
+    ) {
+        this.orderNumber = orderNumber;
+        this.restaurantTable = restaurantTable;
+        this.customerNote = customerNote;
+        this.status = OrderStatus.PENDING;
+    }
+
+    public void addItem(OrderItem item) {
+        items.add(item);
+        item.setOrder(this);
+    }
+
+    @PrePersist
+    protected void onCreate() {
+        Instant now = Instant.now();
+        createdAt = now;
+        updatedAt = now;
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        updatedAt = Instant.now();
+    }
+
+    public Long getId() {
+        return id;
+    }
+
+    public String getOrderNumber() {
+        return orderNumber;
+    }
+
+    public RestaurantTable getRestaurantTable() {
+        return restaurantTable;
+    }
+
+    public OrderStatus getStatus() {
+        return status;
+    }
+
+    public void setStatus(OrderStatus status) {
+        this.status = status;
+    }
+
+    public BigDecimal getTotalAmount() {
+        return totalAmount;
+    }
+
+    public void setTotalAmount(BigDecimal totalAmount) {
+        this.totalAmount = totalAmount;
+    }
+
+    public Integer getTotalPreparationWorkMinutes() {
+        return totalPreparationWorkMinutes;
+    }
+
+    public void setTotalPreparationWorkMinutes(
+            Integer totalPreparationWorkMinutes
+    ) {
+        this.totalPreparationWorkMinutes = totalPreparationWorkMinutes;
+    }
+
+    public String getCustomerNote() {
+        return customerNote;
+    }
+
+    public Instant getCreatedAt() {
+        return createdAt;
+    }
+
+    public Instant getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public List<OrderItem> getItems() {
+        return items;
+    }
+}
+
+========== FILE: C:\Users\Zahin\Documents\Projects\Khai-dai\backend\src\main\java\com\khaidai\backend\entity\RestaurantTable.java ==========
+
+package com.khaidai.backend.entity;
+
+import jakarta.persistence.*;
+import java.time.Instant;
+
+@Entity
+@Table(name = "restaurant_tables")
+public class RestaurantTable {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(name = "table_number", nullable = false, unique = true)
+    private Integer tableNumber;
+
+    @Column(name = "qr_token", nullable = false, unique = true, length = 64)
+    private String qrToken;
+
+    @Column(nullable = false)
+    private boolean active = true;
+
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private Instant createdAt;
+
+    public RestaurantTable() {
+    }
+
+    public RestaurantTable(Integer tableNumber, String qrToken) {
+        this.tableNumber = tableNumber;
+        this.qrToken = qrToken;
+        this.active = true;
+    }
+
+    @PrePersist
+    protected void onCreate() {
+        if (createdAt == null) {
+            createdAt = Instant.now();
+        }
+    }
+
+    public Long getId() {
+        return id;
+    }
+
+    public Integer getTableNumber() {
+        return tableNumber;
+    }
+
+    public String getQrToken() {
+        return qrToken;
+    }
+
+    public boolean isActive() {
+        return active;
+    }
+
+    public Instant getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setActive(boolean active) {
+        this.active = active;
+    }
+}
+
+========== FILE: C:\Users\Zahin\Documents\Projects\Khai-dai\backend\src\main\java\com\khaidai\backend\repository\OrderRepository.java ==========
+
+package com.khaidai.backend.repository;
+
+import com.khaidai.backend.entity.RestaurantOrder;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.util.Optional;
+
+public interface OrderRepository
+        extends JpaRepository<RestaurantOrder, Long> {
+
+    Optional<RestaurantOrder> findByOrderNumber(String orderNumber);
+}
+
+========== FILE: C:\Users\Zahin\Documents\Projects\Khai-dai\backend\src\main\java\com\khaidai\backend\repository\TableRepository.java ==========
+
+package com.khaidai.backend.repository;
+
+import com.khaidai.backend.entity.RestaurantTable;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.util.List;
+import java.util.Optional;
+
+public interface TableRepository
+        extends JpaRepository<RestaurantTable, Long> {
+
+    Optional<RestaurantTable> findByQrTokenAndActiveTrue(
+            String qrToken
+    );
+
+    Optional<RestaurantTable> findByTableNumber(
+            Integer tableNumber
+    );
+
+    boolean existsByTableNumber(Integer tableNumber);
+
+    List<RestaurantTable> findAllByOrderByTableNumberAsc();
+}
+
+========== FILE: C:\Users\Zahin\Documents\Projects\Khai-dai\backend\src\main\java\com\khaidai\backend\service\OrderService.java ==========
+
+package com.khaidai.backend.service;
+
+import com.khaidai.backend.dto.CreateOrderRequest;
+import com.khaidai.backend.dto.OrderResponse;
+
+import com.khaidai.backend.entity.OrderItem;
+import com.khaidai.backend.entity.OrderItemAddon;
+import com.khaidai.backend.entity.OrderStatus;
+import com.khaidai.backend.entity.RestaurantOrder;
+import com.khaidai.backend.entity.RestaurantTable;
+
+import com.khaidai.backend.repository.OrderRepository;
+import com.khaidai.backend.repository.TableRepository;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
+
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
+import java.util.UUID;
+
+@Service
+public class OrderService {
+
+    private final OrderRepository orderRepository;
+    private final TableRepository tableRepository;
+
+    private static final Set<String> ALLOWED_SPICE_LEVELS = Set.of(
+            "Not Spicy",
+            "Mild",
+            "Medium",
+            "Hot"
+    );
+
+    public OrderService(
+            OrderRepository orderRepository,
+            TableRepository tableRepository
+    ) {
+        this.orderRepository = orderRepository;
+        this.tableRepository = tableRepository;
+    }
+
+    // ==========================================
+    // CREATE CUSTOMER ORDER
+    // ==========================================
+
+    @Transactional
+    public OrderResponse createOrder(CreateOrderRequest request) {
+
+        if (request == null) {
+            throw badRequest("Order information is required.");
+        }
+
+        // Validate table QR token
+
+        if (request.tableToken() == null ||
+                request.tableToken().isBlank()) {
+
+            throw badRequest("Table QR token is required.");
+        }
+
+        RestaurantTable table = tableRepository
+                .findByQrTokenAndActiveTrue(request.tableToken())
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Invalid or inactive restaurant table."
+                ));
+
+        // Validate customer note
+
+        if (request.customerNote() != null &&
+                request.customerNote().length() > 500) {
+
+            throw badRequest("Customer note cannot exceed 500 characters.");
+        }
+
+        // Validate order items
+
+        if (request.items() == null ||
+                request.items().isEmpty()) {
+
+            throw badRequest("An order must contain at least one item.");
+        }
+
+        if (request.items().size() > 50) {
+            throw badRequest("An order cannot contain more than 50 item lines.");
+        }
+
+        RestaurantOrder order = new RestaurantOrder(
+                "KD-" + UUID.randomUUID().toString().toUpperCase(),
+                table,
+                request.customerNote()
+        );
+
+        BigDecimal orderTotal = BigDecimal.ZERO;
+        int totalPreparationWork = 0;
+
+        for (CreateOrderRequest.ItemRequest item : request.items()) {
+
+            validateItem(item);
+
+            List<OrderItemAddon> addons = new ArrayList<>();
+
+            // Validate and store selected add-ons
+
+            if (item.selectedAddons() != null) {
+
+                if (item.selectedAddons().size() > 20) {
+                    throw badRequest("Too many add-ons selected.");
+                }
+
+                for (CreateOrderRequest.AddonRequest addon
+                        : item.selectedAddons()) {
+
+                    if (addon == null ||
+                            addon.name() == null ||
+                            addon.name().isBlank() ||
+                            addon.name().length() > 100 ||
+                            addon.price() == null ||
+                            addon.price().compareTo(BigDecimal.ZERO) < 0 ||
+                            addon.price().compareTo(new BigDecimal("100000")) > 0) {
+
+                        throw badRequest("Invalid add-on information.");
+                    }
+
+                    addons.add(new OrderItemAddon(
+                            addon.name().trim(),
+                            normalizePrice(addon.price())
+                    ));
+                }
+            }
+
+            OrderItem orderItem = new OrderItem(
+                    item.foodId(),
+                    item.foodName().trim(),
+                    item.quantity(),
+                    normalizePrice(item.unitPrice()),
+                    item.spiceLevel(),
+                    item.preparationTimeMinutes(),
+                    addons
+            );
+
+            order.addItem(orderItem);
+
+            orderTotal = orderTotal.add(orderItem.getLineTotal());
+
+            totalPreparationWork = Math.addExact(
+                    totalPreparationWork,
+                    Math.multiplyExact(
+                            item.preparationTimeMinutes(),
+                            item.quantity()
+                    )
+            );
+
+            if (totalPreparationWork > 100000) {
+                throw badRequest("Preparation workload is too large.");
+            }
+        }
+
+        // Save calculated totals
+
+        order.setTotalAmount(
+                orderTotal.setScale(2, RoundingMode.HALF_UP)
+        );
+
+        order.setTotalPreparationWorkMinutes(totalPreparationWork);
+
+        // Every new customer order starts as PENDING
+
+        order.setStatus(OrderStatus.PENDING);
+
+        RestaurantOrder savedOrder = orderRepository.save(order);
+
+        return toResponse(savedOrder);
+    }
+
+    // ==========================================
+    // VALIDATE ORDER ITEM
+    // ==========================================
+
+    private void validateItem(
+            CreateOrderRequest.ItemRequest item
+    ) {
+
+        if (item == null) {
+            throw badRequest("Invalid order item.");
+        }
+
+        if (item.foodId() == null || item.foodId() <= 0) {
+            throw badRequest("Invalid food ID.");
+        }
+
+        if (item.foodName() == null ||
+                item.foodName().isBlank() ||
+                item.foodName().length() > 120) {
+
+            throw badRequest("Invalid food name.");
+        }
+
+        if (item.quantity() == null ||
+                item.quantity() < 1 ||
+                item.quantity() > 50) {
+
+            throw badRequest("Quantity must be between 1 and 50.");
+        }
+
+        if (item.unitPrice() == null ||
+                item.unitPrice().compareTo(BigDecimal.ZERO) < 0 ||
+                item.unitPrice().compareTo(new BigDecimal("100000")) > 0) {
+
+            throw badRequest("Invalid food price.");
+        }
+
+        if (item.preparationTimeMinutes() == null ||
+                item.preparationTimeMinutes() < 0 ||
+                item.preparationTimeMinutes() > 1440) {
+
+            throw badRequest("Invalid preparation time.");
+        }
+
+        if (item.spiceLevel() == null ||
+                !ALLOWED_SPICE_LEVELS.contains(item.spiceLevel())) {
+
+            throw badRequest("Invalid spice level.");
+        }
+    }
+
+    private BigDecimal normalizePrice(BigDecimal price) {
+        return price.setScale(2, RoundingMode.HALF_UP);
+    }
+
+    // ==========================================
+    // GET CUSTOMER ORDER
+    // ==========================================
+
+    @Transactional(readOnly = true)
+    public OrderResponse getOrder(String orderNumber) {
+
+        RestaurantOrder order = orderRepository
+                .findByOrderNumber(orderNumber)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Order not found."
+                ));
+
+        return toResponse(order);
+    }
+
+    // ==========================================
+    // CONVERT ENTITY TO RESPONSE
+    // ==========================================
+
+    private OrderResponse toResponse(RestaurantOrder order) {
+
+        List<OrderResponse.ItemResponse> itemResponses =
+                order.getItems().stream()
+                        .map(item -> new OrderResponse.ItemResponse(
+                                item.getFoodId(),
+                                item.getFoodName(),
+                                item.getQuantity(),
+                                item.getUnitPrice(),
+                                item.getLineTotal(),
+                                item.getSpiceLevel(),
+                                item.getPreparationTimeMinutes(),
+
+                                item.getSelectedAddons().stream()
+                                        .map(addon ->
+                                                new OrderResponse.AddonResponse(
+                                                        addon.getName(),
+                                                        addon.getPrice()
+                                                )
+                                        )
+                                        .toList()
+                        ))
+                        .toList();
+
+        return new OrderResponse(
+                order.getId(),
+                order.getOrderNumber(),
+                order.getRestaurantTable().getTableNumber(),
+                order.getStatus(),
+                order.getTotalAmount(),
+                order.getTotalPreparationWorkMinutes(),
+                order.getCreatedAt(),
+                itemResponses
+        );
+    }
+
+    private ResponseStatusException badRequest(String message) {
+        return new ResponseStatusException(
+                HttpStatus.BAD_REQUEST,
+                message
+        );
+    }
+}
+
+========== FILE: C:\Users\Zahin\Documents\Projects\Khai-dai\backend\src\main\java\com\khaidai\backend\service\TableAdminService.java ==========
+
+package com.khaidai.backend.service;
+
+import com.khaidai.backend.dto.TableQrAdminResponse;
+import com.khaidai.backend.repository.TableRepository;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
+
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.util.List;
+
+@Service
+public class TableAdminService {
+
+    private final TableRepository tableRepository;
+
+    @Value("${khaidai.admin.api-key:}")
+    private String configuredAdminKey;
+
+    public TableAdminService(TableRepository tableRepository) {
+        this.tableRepository = tableRepository;
+    }
+
+    public List<TableQrAdminResponse> getAllQrCodes(
+            String providedAdminKey
+    ) {
+
+        validateAdminKey(providedAdminKey);
+
+        return tableRepository
+                .findAllByOrderByTableNumberAsc()
+                .stream()
+                .map(table -> new TableQrAdminResponse(
+                        table.getId(),
+                        table.getTableNumber(),
+                        table.getQrToken(),
+                        table.isActive()
+                ))
+                .toList();
+    }
+
+    private void validateAdminKey(String providedAdminKey) {
+
+        if (configuredAdminKey == null ||
+                configuredAdminKey.isBlank()) {
+
+            throw new ResponseStatusException(
+                    HttpStatus.SERVICE_UNAVAILABLE,
+                    "Admin API key is not configured."
+            );
+        }
+
+        if (providedAdminKey == null ||
+                !MessageDigest.isEqual(
+                        configuredAdminKey.getBytes(
+                                StandardCharsets.UTF_8
+                        ),
+                        providedAdminKey.getBytes(
+                                StandardCharsets.UTF_8
+                        )
+                )) {
+
+            throw new ResponseStatusException(
+                    HttpStatus.UNAUTHORIZED,
+                    "Invalid admin API key."
+            );
+        }
+    }
+}
+
+========== FILE: C:\Users\Zahin\Documents\Projects\Khai-dai\backend\src\main\java\com\khaidai\backend\service\TableDataInitializer.java ==========
+
+package com.khaidai.backend.service;
+
+import com.khaidai.backend.entity.RestaurantTable;
+import com.khaidai.backend.repository.TableRepository;
+
+import org.springframework.boot.ApplicationArguments;
+import org.springframework.boot.ApplicationRunner;
+import org.springframework.stereotype.Component;
+
+import java.security.SecureRandom;
+import java.util.Base64;
+
+@Component
+public class TableDataInitializer implements ApplicationRunner {
+
+    private final TableRepository tableRepository;
+
+    private static final SecureRandom SECURE_RANDOM =
+            new SecureRandom();
+
+    public TableDataInitializer(
+            TableRepository tableRepository
+    ) {
+        this.tableRepository = tableRepository;
+    }
+
+    @Override
+    public void run(ApplicationArguments args) {
+
+        System.out.println(
+                "Checking Khai-Dai restaurant tables..."
+        );
+
+        for (int tableNumber = 1; tableNumber <= 8; tableNumber++) {
+
+            if (!tableRepository.existsByTableNumber(tableNumber)) {
+
+                String token = generateSecureToken();
+
+                RestaurantTable table = new RestaurantTable(
+                        tableNumber,
+                        token
+                );
+
+                tableRepository.save(table);
+
+                System.out.println(
+                        "Created restaurant table: " + tableNumber
+                );
+            }
+        }
+
+        System.out.println(
+                "Khai-Dai table initialization completed."
+        );
+    }
+
+    // Generate a cryptographically secure random token
+    private String generateSecureToken() {
+
+        byte[] randomBytes = new byte[32];
+
+        SECURE_RANDOM.nextBytes(randomBytes);
+
+        return Base64.getUrlEncoder()
+                .withoutPadding()
+                .encodeToString(randomBytes);
+    }
+}
+
+========== FILE: C:\Users\Zahin\Documents\Projects\Khai-dai\backend\src\main\java\com\khaidai\backend\service\TableService.java ==========
+
+package com.khaidai.backend.service;
+
+import com.khaidai.backend.dto.TableResponse;
+import com.khaidai.backend.dto.TableValidationResponse;
+import com.khaidai.backend.entity.RestaurantTable;
+import com.khaidai.backend.repository.TableRepository;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
+
+import java.util.List;
+
+@Service
+public class TableService {
+
+    private final TableRepository tableRepository;
+
+    public TableService(TableRepository tableRepository) {
+        this.tableRepository = tableRepository;
+    }
+
+    // Get all restaurant tables
+    public List<TableResponse> getAllTables() {
+
+        return tableRepository.findAllByOrderByTableNumberAsc()
+                .stream()
+                .map(table -> new TableResponse(
+                        table.getId(),
+                        table.getTableNumber(),
+                        table.isActive()
+                ))
+                .toList();
+    }
+
+    // Validate QR token
+    public TableValidationResponse validateQrToken(String token) {
+
+        RestaurantTable table = tableRepository
+                .findByQrTokenAndActiveTrue(token)
+                .orElseThrow(() ->
+                        new ResponseStatusException(
+                                HttpStatus.NOT_FOUND,
+                                "Invalid or inactive table QR code."
+                        )
+                );
+
+        return new TableValidationResponse(
+                true,
+                table.getTableNumber(),
+                "Table verified successfully."
+        );
+    }
+}
+========== APPLICATION PROPERTIES (SANITIZED) ==========
+
+spring.application.name=khaidai-backend
+
+# Server
+server.port=8090
+
+# PostgreSQL Database
+spring.datasource.url=jdbc:postgresql://localhost:5432/khaidai_db
+spring.datasource.username=${DB_USERNAME:postgres}
+spring.datasource.password=[HIDDEN]
+spring.datasource.driver-class-name=org.postgresql.Driver
+
+# Hibernate / JPA
+spring.jpa.hibernate.ddl-auto=update
+spring.jpa.show-sql=false
+spring.jpa.open-in-view=false
+
+# JSON
+spring.jackson.serialization.indent-output=true
+#postgrePassword=[HIDDEN]
+
+# Admin security
+khaidai.admin.api-key=[HIDDEN]

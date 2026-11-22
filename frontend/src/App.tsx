@@ -64,6 +64,22 @@ type CartItem = {
 
 };
 
+type CreatedOrder = {
+  id: number;
+  orderNumber: string;
+  tableNumber: number;
+  status: string;
+  totalAmount: number | string;
+  totalPreparationWorkMinutes: number;
+  createdAt: string;
+};
+
+const API_BASE_URL =
+  `${window.location.protocol}//${window.location.hostname}:8090`;
+
+const tableToken =
+  new URLSearchParams(window.location.search).get("tableToken")?.trim() ?? "";
+
 const allSpiceLevels: SpiceLevel[] = [
 
   "Not Spicy",
@@ -488,6 +504,12 @@ function CustomerApp() {
 
   const [selectedAddons, setSelectedAddons] = useState<AddOn[]>([]);
 
+  const [customerNote, setCustomerNote] = useState("");
+  const [isSubmittingOrder, setIsSubmittingOrder] = useState(false);
+  const [orderError, setOrderError] = useState("");
+  const [submittedOrder, setSubmittedOrder] =
+    useState<CreatedOrder | null>(null);
+
   // ==========================================
 
   // OPEN FOOD DETAILS
@@ -547,6 +569,9 @@ function CustomerApp() {
     addons: AddOn[]
 
   ) => {
+
+    setSubmittedOrder(null);
+    setOrderError("");
 
     const normalizedAddons = [...addons].sort((a, b) =>
 
@@ -760,15 +785,111 @@ function CustomerApp() {
 
   );
 
-  const estimatedPrepTime =
+  const estimatedPrepTime = cartItems.reduce(
 
-    cartItems.length > 0
+    (total, item) => total + item.food.time * item.quantity,
 
-      ? Math.max(...cartItems.map((item) => item.food.time))
+    0
 
-      : 0;
+  );
 
   const selectedAddOnTotal = getAddOnTotal(selectedAddons);
+
+  // ==========================================
+
+  // SUBMIT CUSTOMER ORDER TO BACKEND
+
+  // ==========================================
+
+  const submitOrder = async () => {
+
+    if (!tableToken) {
+      setOrderError(
+        "This menu is not linked to a table. Please scan the QR code on your table."
+      );
+      return;
+    }
+
+    if (cartItems.length === 0) {
+      setOrderError("Your cart is empty.");
+      return;
+    }
+
+    setIsSubmittingOrder(true);
+    setOrderError("");
+
+    try {
+
+      const payload = {
+        tableToken,
+        customerNote: customerNote.trim() || null,
+        items: cartItems.map((item) => ({
+          foodId: item.food.id,
+          foodName: item.food.name,
+          quantity: item.quantity,
+          unitPrice: item.food.price,
+          preparationTimeMinutes: item.food.time,
+          spiceLevel: item.spiceLevel,
+          selectedAddons: item.selectedAddons.map((addon) => ({
+            name: addon.name,
+            price: addon.price,
+          })),
+        })),
+      };
+
+      const response = await fetch(`${API_BASE_URL}/api/orders`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Accept": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const responseText = await response.text();
+
+      let responseData: any = null;
+
+      try {
+        responseData = responseText ? JSON.parse(responseText) : null;
+      } catch {
+        responseData = null;
+      }
+
+      if (!response.ok) {
+        throw new Error(
+          responseData?.detail ||
+          responseData?.message ||
+          responseData?.error ||
+          `Unable to submit order. Server returned ${response.status}.`
+        );
+      }
+
+      if (!responseData?.orderNumber) {
+        throw new Error(
+          "The server received a response, but no order number was returned."
+        );
+      }
+
+      setSubmittedOrder(responseData as CreatedOrder);
+      setCartItems([]);
+      setCustomerNote("");
+      setOrderError("");
+
+    } catch (error) {
+
+      setOrderError(
+        error instanceof Error
+          ? error.message
+          : "Something went wrong while submitting your order."
+      );
+
+    } finally {
+
+      setIsSubmittingOrder(false);
+
+    }
+  };
 
   // ==========================================
 
@@ -850,7 +971,7 @@ function CustomerApp() {
 
           className="cart-button"
 
-          onClick={() => setIsCartOpen(true)}
+          onClick={() => { setSubmittedOrder(null); setIsCartOpen(true); }}
 
         >
 
@@ -1586,9 +1707,72 @@ function CustomerApp() {
 
             </div>
 
-            {/* EMPTY CART */}
+            {/* ORDER SUCCESS / EMPTY CART / CART ITEMS */}
 
-            {cartItems.length === 0 ? (
+            {submittedOrder ? (
+
+              <div className="order-success-panel" aria-live="polite">
+
+                <div className="order-success-icon">✓</div>
+
+                <span className="eyebrow">ORDER RECEIVED</span>
+
+                <h3>Thank you for your order!</h3>
+
+                <p>
+                  Your order has been sent to the manager for approval.
+                </p>
+
+                <div className="order-success-details">
+
+                  <div>
+                    <span>Order number</span>
+                    <strong>{submittedOrder.orderNumber}</strong>
+                  </div>
+
+                  <div>
+                    <span>Table</span>
+                    <strong>{submittedOrder.tableNumber}</strong>
+                  </div>
+
+                  <div>
+                    <span>Status</span>
+                    <strong>{submittedOrder.status}</strong>
+                  </div>
+
+                  <div>
+                    <span>Order total</span>
+                    <strong>
+                      ৳{Number(submittedOrder.totalAmount).toFixed(2)}
+                    </strong>
+                  </div>
+
+                  <div>
+                    <span>Preparation workload</span>
+                    <strong>
+                      {submittedOrder.totalPreparationWorkMinutes} min
+                    </strong>
+                  </div>
+
+                </div>
+
+                <p className="order-pending-note">
+                  Please wait while our manager reviews your order.
+                </p>
+
+                <button
+                  className="modal-add-button"
+                  onClick={() => {
+                    setSubmittedOrder(null);
+                    setIsCartOpen(false);
+                  }}
+                >
+                  Continue browsing
+                </button>
+
+              </div>
+
+            ) : cartItems.length === 0 ? (
 
               <div className="empty-cart">
 
@@ -1808,6 +1992,27 @@ function CustomerApp() {
 
                 </div>
 
+                {/* CUSTOMER NOTE */}
+
+                <div className="order-note-field">
+
+                  <label htmlFor="customer-order-note">
+                    Special instructions (optional)
+                  </label>
+
+                  <textarea
+                    id="customer-order-note"
+                    value={customerNote}
+                    onChange={(event) => setCustomerNote(event.target.value)}
+                    placeholder="Any instructions for the kitchen?"
+                    maxLength={500}
+                    rows={3}
+                  />
+
+                  <small>{customerNote.length}/500 characters</small>
+
+                </div>
+
                 {/* CART SUMMARY */}
 
                 <div className="cart-summary">
@@ -1830,7 +2035,7 @@ function CustomerApp() {
 
                   <div>
 
-                    <span>Estimated preparation</span>
+                    <span>Total preparation workload</span>
 
                     <strong>{estimatedPrepTime} min</strong>
 
@@ -1849,18 +2054,46 @@ function CustomerApp() {
                 <p className="cart-note">
 
                   Add-on prices are included in the subtotal.
-
-                  Preparation time is a preliminary estimate
-
-                  assuming dishes can be prepared simultaneously.
+                  Preparation workload adds the preparation time of each
+                  ordered serving. Actual waiting time may differ.
 
                 </p>
 
+                {!tableToken && (
+                  <p className="order-submit-error" role="alert">
+                    Scan the QR code on your restaurant table before placing an order.
+                  </p>
+                )}
+
+                {orderError && (
+                  <p className="order-submit-error" role="alert">
+                    {orderError}
+                  </p>
+                )}
+
                 <button
 
-                  className="modal-add-button"
+                  className="modal-add-button order-submit-button"
+
+                  onClick={submitOrder}
+
+                  disabled={isSubmittingOrder || !tableToken}
+
+                >
+
+                  {isSubmittingOrder
+                    ? "Submitting order..."
+                    : `Place order — ৳${subtotal}`}
+
+                </button>
+
+                <button
+
+                  className="order-continue-button"
 
                   onClick={() => setIsCartOpen(false)}
+
+                  disabled={isSubmittingOrder}
 
                 >
 
