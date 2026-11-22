@@ -11,7 +11,12 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/tables")
-@CrossOrigin(origins = "http://localhost:5173")
+@CrossOrigin(
+        originPatterns = {
+                "http://localhost:*",
+                "http://127.0.0.1:*"
+        }
+)
 public class TableController {
 
     private final TableService tableService;
