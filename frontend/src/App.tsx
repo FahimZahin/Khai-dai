@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 
 import "./App.css";
+import ManagerDashboard from "./ManagerDashboard";
 
 import AdminQrPage from "./AdminQrPage";
 
@@ -2143,7 +2144,14 @@ function CustomerApp() {
 // MAIN APPLICATION ROUTING
 // ==========================================
 
+
 function App() {
+
+  // Restaurant manager dashboard
+  if (window.location.pathname === "/admin/orders") {
+    return <ManagerDashboard />;
+  }
+
   // Administrator QR management page
   if (window.location.pathname === "/admin/qr") {
     return <AdminQrPage />;
