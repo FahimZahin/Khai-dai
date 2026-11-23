@@ -4,6 +4,7 @@ import "./App.css";
 import ManagerDashboard from "./ManagerDashboard";
 
 import AdminQrPage from "./AdminQrPage";
+import OrderTracking from "./OrderTracking";
 
 import TableSessionBanner from "./TableSessionBanner";
 
@@ -80,6 +81,10 @@ const API_BASE_URL =
 
 const tableToken =
   new URLSearchParams(window.location.search).get("tableToken")?.trim() ?? "";
+
+const trackingStorageKey = tableToken
+  ? `khaidai.activeOrder.${tableToken}`
+  : "";  
 
 const allSpiceLevels: SpiceLevel[] = [
 
@@ -508,8 +513,16 @@ function CustomerApp() {
   const [customerNote, setCustomerNote] = useState("");
   const [isSubmittingOrder, setIsSubmittingOrder] = useState(false);
   const [orderError, setOrderError] = useState("");
-  const [submittedOrder, setSubmittedOrder] =
-    useState<CreatedOrder | null>(null);
+const [trackingOrderNumber, setTrackingOrderNumber] =
+  useState<string | null>(() => {
+    if (!trackingStorageKey) return null;
+
+    try {
+      return window.sessionStorage.getItem(trackingStorageKey);
+    } catch {
+      return null;
+    }
+  });
 
   // ==========================================
 
@@ -570,8 +583,6 @@ function CustomerApp() {
     addons: AddOn[]
 
   ) => {
-
-    setSubmittedOrder(null);
     setOrderError("");
 
     const normalizedAddons = [...addons].sort((a, b) =>
@@ -869,7 +880,18 @@ const estimatedPrepTime = cartItems.reduce(
         );
       }
 
-      setSubmittedOrder(responseData as CreatedOrder);
+      const createdOrder = responseData as CreatedOrder;
+
+setTrackingOrderNumber(createdOrder.orderNumber);
+
+try {
+  window.sessionStorage.setItem(
+    trackingStorageKey,
+    createdOrder.orderNumber
+  );
+} catch {
+  // Tracking remains available until this page is closed.
+}
       setCartItems([]);
       setCustomerNote("");
       setOrderError("");
@@ -969,8 +991,7 @@ const estimatedPrepTime = cartItems.reduce(
 
           className="cart-button"
 
-          onClick={() => { setSubmittedOrder(null); setIsCartOpen(true); }}
-
+          onClick={() => setIsCartOpen(true)}
         >
 
           <span>🛒</span>
@@ -1707,70 +1728,30 @@ const estimatedPrepTime = cartItems.reduce(
 
             {/* ORDER SUCCESS / EMPTY CART / CART ITEMS */}
 
-            {submittedOrder ? (
+{trackingOrderNumber && cartItems.length === 0 ? (
 
-              <div className="order-success-panel" aria-live="polite">
+  <OrderTracking
+    orderNumber={trackingOrderNumber}
 
-                <div className="order-success-icon">✓</div>
+    onContinueBrowsing={() => {
+      setIsCartOpen(false);
+    }}
 
-                <span className="eyebrow">ORDER RECEIVED</span>
+    onDone={() => {
 
-                <h3>Thank you for your order!</h3>
+      try {
+        window.sessionStorage.removeItem(trackingStorageKey);
+      } catch {
+        // Ignore storage errors.
+      }
 
-                <p>
-                  Your order has been sent to the manager for approval.
-                </p>
+      setTrackingOrderNumber(null);
+      setIsCartOpen(false);
 
-                <div className="order-success-details">
+    }}
+  />
 
-                  <div>
-                    <span>Order number</span>
-                    <strong>{submittedOrder.orderNumber}</strong>
-                  </div>
-
-                  <div>
-                    <span>Table</span>
-                    <strong>{submittedOrder.tableNumber}</strong>
-                  </div>
-
-                  <div>
-                    <span>Status</span>
-                    <strong>{submittedOrder.status}</strong>
-                  </div>
-
-                  <div>
-                    <span>Order total</span>
-                    <strong>
-                      ৳{Number(submittedOrder.totalAmount).toFixed(2)}
-                    </strong>
-                  </div>
-
-                  <div>
-                    <span>Estimated preparation time</span>
-                    <strong>
-                      {submittedOrder.totalPreparationWorkMinutes} min
-                    </strong>
-                  </div>
-
-                </div>
-
-                <p className="order-pending-note">
-                  Please wait while our manager reviews your order.
-                </p>
-
-                <button
-                  className="modal-add-button"
-                  onClick={() => {
-                    setSubmittedOrder(null);
-                    setIsCartOpen(false);
-                  }}
-                >
-                  Continue browsing
-                </button>
-
-              </div>
-
-            ) : cartItems.length === 0 ? (
+) : cartItems.length === 0 ? (
 
               <div className="empty-cart">
 
