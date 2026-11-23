@@ -786,13 +786,10 @@ function CustomerApp() {
 
   );
 
-  const estimatedPrepTime = cartItems.reduce(
-
-    (total, item) => total + item.food.time * item.quantity,
-
+const estimatedPrepTime = cartItems.reduce(
+    (longest, item) => Math.max(longest, item.food.time),
     0
-
-  );
+);
 
   const selectedAddOnTotal = getAddOnTotal(selectedAddons);
 
@@ -1749,7 +1746,7 @@ function CustomerApp() {
                   </div>
 
                   <div>
-                    <span>Preparation workload</span>
+                    <span>Estimated preparation time</span>
                     <strong>
                       {submittedOrder.totalPreparationWorkMinutes} min
                     </strong>
@@ -2036,7 +2033,7 @@ function CustomerApp() {
 
                   <div>
 
-                    <span>Total preparation workload</span>
+                    <span>Estimated preparation time</span>
 
                     <strong>{estimatedPrepTime} min</strong>
 

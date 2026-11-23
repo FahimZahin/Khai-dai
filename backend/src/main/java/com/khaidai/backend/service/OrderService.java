@@ -150,17 +150,12 @@ public class OrderService {
 
             orderTotal = orderTotal.add(orderItem.getLineTotal());
 
-            totalPreparationWork = Math.addExact(
-                    totalPreparationWork,
-                    Math.multiplyExact(
-                            item.preparationTimeMinutes(),
-                            item.quantity()
-                    )
-            );
-
-            if (totalPreparationWork > 100000) {
-                throw badRequest("Preparation workload is too large.");
-            }
+// Different dishes are assumed to be prepared simultaneously.
+// Multiple servings of the same dish are prepared in one batch.
+totalPreparationWork = Math.max(
+        totalPreparationWork,
+        item.preparationTimeMinutes()
+);
         }
 
         // Save calculated totals

@@ -1,8 +1,8 @@
-
 import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type FormEvent,
 } from "react";
@@ -127,6 +127,11 @@ export default function ManagerDashboard() {
   const [error, setError] = useState("");
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
+  const [notificationsEnabled, setNotificationsEnabled] =
+  useState(false);
+
+const knownOrderIds = useRef<Set<number> | null>(null);
+
   const [filter, setFilter] = useState<OrderFilter>("ALL");
 
   // ==========================================
@@ -151,14 +156,57 @@ export default function ManagerDashboard() {
 
     const data: ManagerOrder[] = await response.json();
 
-    if (!Array.isArray(data)) {
-      throw new Error("Invalid order data received from server.");
-    }
+if (!Array.isArray(data)) {
+  throw new Error("Invalid order data received from server.");
+}
 
-    setOrders(data);
+// First load: remember existing orders without alerting.
+if (knownOrderIds.current === null) {
+
+  knownOrderIds.current = new Set(
+    data.map((order) => order.id)
+  );
+
+} else {
+
+  // Find newly arrived pending orders.
+  const newOrders = data.filter(
+    (order) =>
+      order.status === "PENDING" &&
+      !knownOrderIds.current!.has(order.id)
+  );
+
+  // Remember all orders to prevent duplicate notifications.
+  data.forEach((order) => {
+    knownOrderIds.current!.add(order.id);
+  });
+
+  // Notify manager about new orders.
+  if (
+    notificationsEnabled &&
+    "Notification" in window &&
+    Notification.permission === "granted"
+  ) {
+
+    newOrders.forEach((order) => {
+
+      new Notification("New Khai-Dai Order!", {
+        body:
+          `Table ${order.tableNumber} | ` +
+          `${order.orderNumber} | ` +
+          `${formatMoney(order.totalAmount)}`,
+        tag: `khaidai-order-${order.id}`,
+      });
+
+    });
+
+  }
+}
+
+setOrders(data);
     setLastUpdated(new Date());
     setError("");
-  }, []);
+  }, [notificationsEnabled]);
 
   // ==========================================
   // ADMIN LOGIN
@@ -197,6 +245,50 @@ export default function ManagerDashboard() {
       setLoading(false);
     }
   };
+
+  // ==========================================
+// ENABLE BROWSER NOTIFICATIONS
+// ==========================================
+
+const enableNotifications = async () => {
+
+  if (!("Notification" in window)) {
+    setError(
+      "Your browser does not support notifications."
+    );
+    return;
+  }
+
+  if (Notification.permission === "denied") {
+    setError(
+      "Notifications are blocked. Allow them in your browser site settings."
+    );
+    return;
+  }
+
+  try {
+
+    const permission = await Notification.requestPermission();
+
+    if (permission === "granted") {
+
+      setNotificationsEnabled(true);
+      setError("");
+
+    } else {
+
+      setError(
+        "Please allow browser notifications to receive new-order alerts."
+      );
+
+    }
+
+  } catch {
+
+    setError("Unable to enable browser notifications.");
+
+  }
+};
 
   // ==========================================
   // AUTOMATIC ORDER REFRESH
@@ -450,6 +542,16 @@ export default function ManagerDashboard() {
         </div>
 
         <div className="manager-header-actions">
+
+          <button
+  onClick={enableNotifications}
+  disabled={notificationsEnabled}
+  className="manager-refresh-button"
+>
+  {notificationsEnabled
+    ? "✓ Alerts enabled"
+    : "🔔 Enable alerts"}
+</button>
 
           <button
             onClick={handleRefresh}
@@ -708,7 +810,7 @@ export default function ManagerDashboard() {
                   <div className="manager-order-summary">
 
                     <div>
-                      <span>Preparation workload</span>
+                      <span>Estimated preparation time</span>
                       <strong>
                         {order.totalPreparationWorkMinutes} min
                       </strong>
