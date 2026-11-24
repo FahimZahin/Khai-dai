@@ -829,22 +829,22 @@ const estimatedPrepTime = cartItems.reduce(
 
     try {
 
-      const payload = {
-        tableToken,
-        customerNote: customerNote.trim() || null,
-        items: cartItems.map((item) => ({
-          foodId: item.food.id,
-          foodName: item.food.name,
-          quantity: item.quantity,
-          unitPrice: item.food.price,
-          preparationTimeMinutes: item.food.time,
-          spiceLevel: item.spiceLevel,
-          selectedAddons: item.selectedAddons.map((addon) => ({
-            name: addon.name,
-            price: addon.price,
-          })),
-        })),
-      };
+const payload = {
+  tableToken,
+  customerNote: customerNote.trim() || null,
+
+  items: cartItems.map((item) => ({
+    foodId: item.food.id,
+
+    quantity: item.quantity,
+
+    spiceLevel: item.spiceLevel,
+
+    selectedAddons: item.selectedAddons.map((addon) => ({
+      id: addon.id,
+    })),
+  })),
+};
 
       const response = await fetch(`${API_BASE_URL}/api/orders`, {
         method: "POST",

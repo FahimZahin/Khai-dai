@@ -1,4 +1,3 @@
-
 package com.khaidai.backend.service;
 
 import com.khaidai.backend.dto.CreateOrderRequest;
@@ -20,7 +19,9 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -30,13 +31,6 @@ public class OrderService {
 
     private final OrderRepository orderRepository;
     private final TableRepository tableRepository;
-
-    private static final Set<String> ALLOWED_SPICE_LEVELS = Set.of(
-            "Not Spicy",
-            "Mild",
-            "Medium",
-            "Hot"
-    );
 
     public OrderService(
             OrderRepository orderRepository,
@@ -77,7 +71,9 @@ public class OrderService {
         if (request.customerNote() != null &&
                 request.customerNote().length() > 500) {
 
-            throw badRequest("Customer note cannot exceed 500 characters.");
+            throw badRequest(
+                    "Customer note cannot exceed 500 characters."
+            );
         }
 
         // Validate order items
@@ -85,11 +81,16 @@ public class OrderService {
         if (request.items() == null ||
                 request.items().isEmpty()) {
 
-            throw badRequest("An order must contain at least one item.");
+            throw badRequest(
+                    "An order must contain at least one item."
+            );
         }
 
         if (request.items().size() > 50) {
-            throw badRequest("An order cannot contain more than 50 item lines.");
+
+            throw badRequest(
+                    "An order cannot contain more than 50 item lines."
+            );
         }
 
         RestaurantOrder order = new RestaurantOrder(
@@ -99,63 +100,107 @@ public class OrderService {
         );
 
         BigDecimal orderTotal = BigDecimal.ZERO;
+
         int totalPreparationWork = 0;
+
+        // Process every order item
 
         for (CreateOrderRequest.ItemRequest item : request.items()) {
 
-            validateItem(item);
+            // Validate food and retrieve official catalog data
+
+            MenuCatalog.FoodItem food = validateItem(item);
 
             List<OrderItemAddon> addons = new ArrayList<>();
 
-            // Validate and store selected add-ons
+            // Validate selected add-ons
 
             if (item.selectedAddons() != null) {
 
                 if (item.selectedAddons().size() > 20) {
+
                     throw badRequest("Too many add-ons selected.");
                 }
 
-                for (CreateOrderRequest.AddonRequest addon
+                // Prevent duplicate add-on selections
+
+                Set<String> selectedAddonIds = new HashSet<>();
+
+                for (CreateOrderRequest.AddonRequest addonRequest
                         : item.selectedAddons()) {
 
-                    if (addon == null ||
-                            addon.name() == null ||
-                            addon.name().isBlank() ||
-                            addon.name().length() > 100 ||
-                            addon.price() == null ||
-                            addon.price().compareTo(BigDecimal.ZERO) < 0 ||
-                            addon.price().compareTo(new BigDecimal("100000")) > 0) {
+                    if (addonRequest == null ||
+                            addonRequest.id() == null ||
+                            addonRequest.id().isBlank()) {
 
-                        throw badRequest("Invalid add-on information.");
+                        throw badRequest(
+                                "Invalid add-on information."
+                        );
                     }
 
+                    String addonId = addonRequest.id().trim();
+
+                    if (!selectedAddonIds.add(addonId)) {
+
+                        throw badRequest(
+                                "Duplicate add-on selection."
+                        );
+                    }
+
+                    // Find add-on belonging to this particular food
+
+                    MenuCatalog.Addon officialAddon =
+                            food.addons().get(addonId);
+
+                    if (officialAddon == null) {
+
+                        throw badRequest(
+                                "Selected add-on is not available for this food."
+                        );
+                    }
+
+                    // Use official backend add-on price
+
                     addons.add(new OrderItemAddon(
-                            addon.name().trim(),
-                            normalizePrice(addon.price())
+                            officialAddon.name(),
+                            normalizePrice(officialAddon.price())
                     ));
                 }
             }
 
+            // Build order item using backend-authoritative values
+
             OrderItem orderItem = new OrderItem(
-                    item.foodId(),
-                    item.foodName().trim(),
+
+                    food.id(),
+
+                    food.name(),
+
                     item.quantity(),
-                    normalizePrice(item.unitPrice()),
+
+                    normalizePrice(food.price()),
+
                     item.spiceLevel(),
-                    item.preparationTimeMinutes(),
+
+                    food.preparationTimeMinutes(),
+
                     addons
             );
 
             order.addItem(orderItem);
 
-            orderTotal = orderTotal.add(orderItem.getLineTotal());
+            // Calculate actual line total
 
-// Different dishes are assumed to be prepared simultaneously.
-// Multiple servings of the same dish are prepared in one batch.
-totalPreparationWork = Math.max(
-        totalPreparationWork,
-        item.preparationTimeMinutes()
-);
+            orderTotal = orderTotal.add(
+                    orderItem.getLineTotal()
+            );
+
+            // Different dishes can be prepared simultaneously
+
+            totalPreparationWork = Math.max(
+                    totalPreparationWork,
+                    food.preparationTimeMinutes()
+            );
         }
 
         // Save calculated totals
@@ -164,7 +209,9 @@ totalPreparationWork = Math.max(
                 orderTotal.setScale(2, RoundingMode.HALF_UP)
         );
 
-        order.setTotalPreparationWorkMinutes(totalPreparationWork);
+        order.setTotalPreparationWorkMinutes(
+                totalPreparationWork
+        );
 
         // Every new customer order starts as PENDING
 
@@ -176,57 +223,59 @@ totalPreparationWork = Math.max(
     }
 
     // ==========================================
-    // VALIDATE ORDER ITEM
+    // VALIDATE ITEM AND GET OFFICIAL FOOD
     // ==========================================
 
-    private void validateItem(
+    private MenuCatalog.FoodItem validateItem(
             CreateOrderRequest.ItemRequest item
     ) {
 
         if (item == null) {
+
             throw badRequest("Invalid order item.");
         }
 
-        if (item.foodId() == null || item.foodId() <= 0) {
+        if (item.foodId() == null) {
+
             throw badRequest("Invalid food ID.");
         }
 
-        if (item.foodName() == null ||
-                item.foodName().isBlank() ||
-                item.foodName().length() > 120) {
+        MenuCatalog.FoodItem food =
+                MenuCatalog.findById(item.foodId());
 
-            throw badRequest("Invalid food name.");
+        if (food == null) {
+
+            throw badRequest("Food does not exist.");
         }
 
         if (item.quantity() == null ||
                 item.quantity() < 1 ||
                 item.quantity() > 50) {
 
-            throw badRequest("Quantity must be between 1 and 50.");
+            throw badRequest(
+                    "Quantity must be between 1 and 50."
+            );
         }
 
-        if (item.unitPrice() == null ||
-                item.unitPrice().compareTo(BigDecimal.ZERO) < 0 ||
-                item.unitPrice().compareTo(new BigDecimal("100000")) > 0) {
-
-            throw badRequest("Invalid food price.");
-        }
-
-        if (item.preparationTimeMinutes() == null ||
-                item.preparationTimeMinutes() < 0 ||
-                item.preparationTimeMinutes() > 1440) {
-
-            throw badRequest("Invalid preparation time.");
-        }
+        // Validate spice level against this food's options
 
         if (item.spiceLevel() == null ||
-                !ALLOWED_SPICE_LEVELS.contains(item.spiceLevel())) {
+                !food.spiceOptions().contains(item.spiceLevel())) {
 
-            throw badRequest("Invalid spice level.");
+            throw badRequest(
+                    "Invalid spice level for this food."
+            );
         }
+
+        return food;
     }
 
+    // ==========================================
+    // NORMALIZE PRICE
+    // ==========================================
+
     private BigDecimal normalizePrice(BigDecimal price) {
+
         return price.setScale(2, RoundingMode.HALF_UP);
     }
 
@@ -255,39 +304,63 @@ totalPreparationWork = Math.max(
 
         List<OrderResponse.ItemResponse> itemResponses =
                 order.getItems().stream()
+
                         .map(item -> new OrderResponse.ItemResponse(
+
                                 item.getFoodId(),
+
                                 item.getFoodName(),
+
                                 item.getQuantity(),
+
                                 item.getUnitPrice(),
+
                                 item.getLineTotal(),
+
                                 item.getSpiceLevel(),
+
                                 item.getPreparationTimeMinutes(),
 
                                 item.getSelectedAddons().stream()
+
                                         .map(addon ->
                                                 new OrderResponse.AddonResponse(
                                                         addon.getName(),
                                                         addon.getPrice()
                                                 )
                                         )
+
                                         .toList()
                         ))
+
                         .toList();
 
         return new OrderResponse(
+
                 order.getId(),
+
                 order.getOrderNumber(),
+
                 order.getRestaurantTable().getTableNumber(),
+
                 order.getStatus(),
+
                 order.getTotalAmount(),
+
                 order.getTotalPreparationWorkMinutes(),
+
                 order.getCreatedAt(),
+
                 itemResponses
         );
     }
 
+    // ==========================================
+    // BAD REQUEST
+    // ==========================================
+
     private ResponseStatusException badRequest(String message) {
+
         return new ResponseStatusException(
                 HttpStatus.BAD_REQUEST,
                 message
