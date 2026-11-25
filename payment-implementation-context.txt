@@ -1,0 +1,4365 @@
+
+
+========== .\backend\src\main\java\com\khaidai\backend\entity\Payment.java ==========
+package com.khaidai.backend.entity;
+
+import jakarta.persistence.*;
+
+import java.math.BigDecimal;
+import java.time.Instant;
+
+@Entity
+@Table(
+    name = "payments",
+    indexes = {
+        @Index(name = "idx_payment_order", columnList = "order_id"),
+        @Index(name = "idx_payment_status", columnList = "status")
+    }
+)
+public class Payment {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "order_id", nullable = false)
+    private RestaurantOrder order;
+
+    @Column(name = "transaction_id", nullable = false, unique = true, length = 100)
+    private String transactionId;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "payment_method", nullable = false, length = 30)
+    private PaymentMethod paymentMethod;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 30)
+    private PaymentStatus status = PaymentStatus.PENDING;
+
+    @Column(nullable = false, precision = 10, scale = 2)
+    private BigDecimal amount;
+
+    @Column(nullable = false, length = 3)
+    private String currency = "BDT";
+
+    @Column(name = "gateway_validation_id", length = 150)
+    private String gatewayValidationId;
+
+    @Column(name = "bank_transaction_id", length = 150)
+    private String bankTransactionId;
+
+    @Column(name = "gateway_session_key", length = 100)
+    private String gatewaySessionKey;
+
+    @Column(name = "gateway_page_url", length = 500)
+    private String gatewayPageUrl;
+
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private Instant createdAt;
+
+    @Column(name = "updated_at", nullable = false)
+    private Instant updatedAt;
+
+    @Column(name = "paid_at")
+    private Instant paidAt;
+
+    public Payment() {
+    }
+
+    @PrePersist
+    protected void onCreate() {
+        Instant now = Instant.now();
+        createdAt = now;
+        updatedAt = now;
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        updatedAt = Instant.now();
+    }
+
+    public Long getId() {
+        return id;
+    }
+
+    public RestaurantOrder getOrder() {
+        return order;
+    }
+
+    public void setOrder(RestaurantOrder order) {
+        this.order = order;
+    }
+
+    public String getTransactionId() {
+        return transactionId;
+    }
+
+    public void setTransactionId(String transactionId) {
+        this.transactionId = transactionId;
+    }
+
+    public PaymentMethod getPaymentMethod() {
+        return paymentMethod;
+    }
+
+    public void setPaymentMethod(PaymentMethod paymentMethod) {
+        this.paymentMethod = paymentMethod;
+    }
+
+    public PaymentStatus getStatus() {
+        return status;
+    }
+
+    public void setStatus(PaymentStatus status) {
+        this.status = status;
+
+        if (status == PaymentStatus.PAID) {
+            this.paidAt = Instant.now();
+        }
+    }
+
+    public BigDecimal getAmount() {
+        return amount;
+    }
+
+    public void setAmount(BigDecimal amount) {
+        this.amount = amount;
+    }
+
+    public String getCurrency() {
+        return currency;
+    }
+
+    public void setCurrency(String currency) {
+        this.currency = currency;
+    }
+
+    public String getGatewayValidationId() {
+        return gatewayValidationId;
+    }
+
+    public void setGatewayValidationId(String gatewayValidationId) {
+        this.gatewayValidationId = gatewayValidationId;
+    }
+
+    public String getBankTransactionId() {
+        return bankTransactionId;
+    }
+
+    public void setBankTransactionId(String bankTransactionId) {
+        this.bankTransactionId = bankTransactionId;
+    }
+
+    public String getGatewaySessionKey() {
+        return gatewaySessionKey;
+    }
+
+    public void setGatewaySessionKey(String gatewaySessionKey) {
+        this.gatewaySessionKey = gatewaySessionKey;
+    }
+
+    public String getGatewayPageUrl() {
+        return gatewayPageUrl;
+    }
+
+    public void setGatewayPageUrl(String gatewayPageUrl) {
+        this.gatewayPageUrl = gatewayPageUrl;
+    }
+
+    public Instant getCreatedAt() {
+        return createdAt;
+    }
+
+    public Instant getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public Instant getPaidAt() {
+        return paidAt;
+    }
+}
+
+
+========== .\backend\src\main\java\com\khaidai\backend\entity\PaymentStatus.java ==========
+
+package com.khaidai.backend.entity;
+
+public enum PaymentStatus {
+    PENDING,
+    PAID,
+    FAILED,
+    CANCELLED,
+    REFUNDED
+}
+
+
+
+========== .\backend\src\main\java\com\khaidai\backend\entity\PaymentMethod.java ==========
+
+package com.khaidai.backend.entity;
+
+public enum PaymentMethod {
+    CASH,
+    SSLCOMMERZ
+}
+
+
+
+========== .\backend\src\main\java\com\khaidai\backend\entity\OrderStatus.java ==========
+package com.khaidai.backend.entity;
+
+public enum OrderStatus {
+    AWAITING_PAYMENT,
+    PENDING,
+    ACCEPTED,
+    REJECTED,
+    PREPARING,
+    READY,
+    SERVED,
+    CANCELLED
+}
+
+
+========== .\backend\src\main\java\com\khaidai\backend\entity\RestaurantOrder.java ==========
+
+package com.khaidai.backend.entity;
+
+import jakarta.persistence.*;
+
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
+
+@Entity
+@Table(name = "restaurant_orders")
+public class RestaurantOrder {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(name = "order_number", nullable = false, unique = true, length = 50)
+    private String orderNumber;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "table_id", nullable = false)
+    private RestaurantTable restaurantTable;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 30)
+    private OrderStatus status = OrderStatus.PENDING;
+
+    @Column(name = "total_amount", nullable = false, precision = 10, scale = 2)
+    private BigDecimal totalAmount = BigDecimal.ZERO;
+
+    @Column(name = "total_preparation_work_minutes", nullable = false)
+    private Integer totalPreparationWorkMinutes = 0;
+
+    @Column(name = "customer_note", length = 500)
+    private String customerNote;
+
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private Instant createdAt;
+
+    @Column(name = "updated_at", nullable = false)
+    private Instant updatedAt;
+
+    @OneToMany(
+        mappedBy = "order",
+        cascade = CascadeType.ALL,
+        orphanRemoval = true
+    )
+    private List<OrderItem> items = new ArrayList<>();
+
+    public RestaurantOrder() {
+    }
+
+    public RestaurantOrder(
+            String orderNumber,
+            RestaurantTable restaurantTable,
+            String customerNote
+    ) {
+        this.orderNumber = orderNumber;
+        this.restaurantTable = restaurantTable;
+        this.customerNote = customerNote;
+        this.status = OrderStatus.PENDING;
+    }
+
+    public void addItem(OrderItem item) {
+        items.add(item);
+        item.setOrder(this);
+    }
+
+    @PrePersist
+    protected void onCreate() {
+        Instant now = Instant.now();
+        createdAt = now;
+        updatedAt = now;
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        updatedAt = Instant.now();
+    }
+
+    public Long getId() {
+        return id;
+    }
+
+    public String getOrderNumber() {
+        return orderNumber;
+    }
+
+    public RestaurantTable getRestaurantTable() {
+        return restaurantTable;
+    }
+
+    public OrderStatus getStatus() {
+        return status;
+    }
+
+    public void setStatus(OrderStatus status) {
+        this.status = status;
+    }
+
+    public BigDecimal getTotalAmount() {
+        return totalAmount;
+    }
+
+    public void setTotalAmount(BigDecimal totalAmount) {
+        this.totalAmount = totalAmount;
+    }
+
+    public Integer getTotalPreparationWorkMinutes() {
+        return totalPreparationWorkMinutes;
+    }
+
+    public void setTotalPreparationWorkMinutes(
+            Integer totalPreparationWorkMinutes
+    ) {
+        this.totalPreparationWorkMinutes = totalPreparationWorkMinutes;
+    }
+
+    public String getCustomerNote() {
+        return customerNote;
+    }
+
+    public Instant getCreatedAt() {
+        return createdAt;
+    }
+
+    public Instant getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public List<OrderItem> getItems() {
+        return items;
+    }
+}
+
+
+
+========== .\backend\src\main\java\com\khaidai\backend\repository\PaymentRepository.java ==========
+
+package com.khaidai.backend.repository;
+
+import com.khaidai.backend.entity.Payment;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.util.List;
+import java.util.Optional;
+
+public interface PaymentRepository
+        extends JpaRepository<Payment, Long> {
+
+    Optional<Payment> findByTransactionId(String transactionId);
+
+    List<Payment> findAllByOrder_IdOrderByCreatedAtDesc(
+        Long orderId
+    );
+
+    boolean existsByTransactionId(String transactionId);
+}
+
+
+
+========== .\backend\src\main\java\com\khaidai\backend\repository\OrderRepository.java ==========
+
+package com.khaidai.backend.repository;
+
+import com.khaidai.backend.entity.RestaurantOrder;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.util.List;
+import java.util.Optional;
+
+public interface OrderRepository
+        extends JpaRepository<RestaurantOrder, Long> {
+
+    Optional<RestaurantOrder> findByOrderNumber(String orderNumber);
+
+    List<RestaurantOrder> findAllByOrderByCreatedAtDesc();
+}
+
+
+
+========== .\backend\src\main\java\com\khaidai\backend\dto\CreateOrderRequest.java ==========
+package com.khaidai.backend.dto;
+
+import com.khaidai.backend.entity.PaymentMethod;
+
+import java.util.List;
+
+public record CreateOrderRequest(
+        String tableToken,
+        String customerNote,
+        PaymentMethod paymentMethod,
+        List<ItemRequest> items
+) {
+
+    public record ItemRequest(
+            Integer foodId,
+            Integer quantity,
+            String spiceLevel,
+            List<AddonRequest> selectedAddons
+    ) {
+    }
+
+    public record AddonRequest(
+            String id
+    ) {
+    }
+}
+
+
+========== .\backend\src\main\java\com\khaidai\backend\dto\OrderResponse.java ==========
+
+package com.khaidai.backend.dto;
+
+import com.khaidai.backend.entity.OrderStatus;
+
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.util.List;
+
+public record OrderResponse(
+        Long id,
+        String orderNumber,
+        Integer tableNumber,
+        OrderStatus status,
+        BigDecimal totalAmount,
+        Integer totalPreparationWorkMinutes,
+        Instant createdAt,
+        List<ItemResponse> items
+) {
+
+    public record ItemResponse(
+            Integer foodId,
+            String foodName,
+            Integer quantity,
+            BigDecimal unitPrice,
+            BigDecimal lineTotal,
+            String spiceLevel,
+            Integer preparationTimeMinutes,
+            List<AddonResponse> selectedAddons
+    ) {
+    }
+
+    public record AddonResponse(
+            String name,
+            BigDecimal price
+    ) {
+    }
+}
+
+
+
+========== .\backend\src\main\java\com\khaidai\backend\dto\PaymentInitiateRequest.java ==========
+package com.khaidai.backend.dto;
+
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
+
+public record PaymentInitiateRequest(
+
+    @NotBlank
+    @Size(max = 50)
+    String orderNumber,
+
+    @NotBlank
+    @Size(max = 100)
+    String customerName,
+
+    @NotBlank
+    @Email
+    @Size(max = 100)
+    String customerEmail,
+
+    @NotBlank
+    @Size(max = 20)
+    String customerPhone,
+
+    @NotBlank
+    @Size(max = 200)
+    String customerAddress,
+
+    @NotBlank
+    @Size(max = 80)
+    String customerCity,
+
+    @Size(max = 20)
+    String customerPostcode
+
+) {
+}
+
+
+========== .\backend\src\main\java\com\khaidai\backend\dto\PaymentInitiateResponse.java ==========
+package com.khaidai.backend.dto;
+
+import com.khaidai.backend.entity.PaymentStatus;
+
+import java.math.BigDecimal;
+
+public record PaymentInitiateResponse(
+    String transactionId,
+    BigDecimal amount,
+    String currency,
+    String gatewayPageUrl,
+    PaymentStatus status
+) {
+}
+
+
+========== .\backend\src\main\java\com\khaidai\backend\service\OrderService.java ==========
+package com.khaidai.backend.service;
+
+import com.khaidai.backend.dto.CreateOrderRequest;
+import com.khaidai.backend.dto.OrderResponse;
+
+import com.khaidai.backend.entity.OrderItem;
+import com.khaidai.backend.entity.OrderItemAddon;
+import com.khaidai.backend.entity.OrderStatus;
+import com.khaidai.backend.entity.PaymentMethod;
+import com.khaidai.backend.entity.RestaurantOrder;
+import com.khaidai.backend.entity.RestaurantTable;
+
+import com.khaidai.backend.repository.OrderRepository;
+import com.khaidai.backend.repository.TableRepository;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
+
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.UUID;
+
+@Service
+public class OrderService {
+
+    private final OrderRepository orderRepository;
+    private final TableRepository tableRepository;
+
+    public OrderService(
+            OrderRepository orderRepository,
+            TableRepository tableRepository
+    ) {
+        this.orderRepository = orderRepository;
+        this.tableRepository = tableRepository;
+    }
+
+    // ==========================================
+    // CREATE CUSTOMER ORDER
+    // ==========================================
+
+    @Transactional
+    public OrderResponse createOrder(CreateOrderRequest request) {
+
+        if (request == null) {
+            throw badRequest("Order information is required.");
+        }
+
+        // Validate table QR token
+
+        if (request.tableToken() == null ||
+                request.tableToken().isBlank()) {
+
+            throw badRequest("Table QR token is required.");
+        }
+
+        RestaurantTable table = tableRepository
+                .findByQrTokenAndActiveTrue(request.tableToken())
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Invalid or inactive restaurant table."
+                ));
+
+        // Validate customer note
+
+        if (request.customerNote() != null &&
+                request.customerNote().length() > 500) {
+
+            throw badRequest(
+                    "Customer note cannot exceed 500 characters."
+            );
+        }
+
+        // Validate order items
+
+        if (request.items() == null ||
+                request.items().isEmpty()) {
+
+            throw badRequest(
+                    "An order must contain at least one item."
+            );
+        }
+
+        if (request.items().size() > 50) {
+
+            throw badRequest(
+                    "An order cannot contain more than 50 item lines."
+            );
+        }
+
+        RestaurantOrder order = new RestaurantOrder(
+                "KD-" + UUID.randomUUID().toString().toUpperCase(),
+                table,
+                request.customerNote()
+        );
+
+        BigDecimal orderTotal = BigDecimal.ZERO;
+
+        int totalPreparationWork = 0;
+
+        // Process every order item
+
+        for (CreateOrderRequest.ItemRequest item : request.items()) {
+
+            // Validate food and retrieve official catalog data
+
+            MenuCatalog.FoodItem food = validateItem(item);
+
+            List<OrderItemAddon> addons = new ArrayList<>();
+
+            // Validate selected add-ons
+
+            if (item.selectedAddons() != null) {
+
+                if (item.selectedAddons().size() > 20) {
+
+                    throw badRequest("Too many add-ons selected.");
+                }
+
+                // Prevent duplicate add-on selections
+
+                Set<String> selectedAddonIds = new HashSet<>();
+
+                for (CreateOrderRequest.AddonRequest addonRequest
+                        : item.selectedAddons()) {
+
+                    if (addonRequest == null ||
+                            addonRequest.id() == null ||
+                            addonRequest.id().isBlank()) {
+
+                        throw badRequest(
+                                "Invalid add-on information."
+                        );
+                    }
+
+                    String addonId = addonRequest.id().trim();
+
+                    if (!selectedAddonIds.add(addonId)) {
+
+                        throw badRequest(
+                                "Duplicate add-on selection."
+                        );
+                    }
+
+                    // Find add-on belonging to this particular food
+
+                    MenuCatalog.Addon officialAddon =
+                            food.addons().get(addonId);
+
+                    if (officialAddon == null) {
+
+                        throw badRequest(
+                                "Selected add-on is not available for this food."
+                        );
+                    }
+
+                    // Use official backend add-on price
+
+                    addons.add(new OrderItemAddon(
+                            officialAddon.name(),
+                            normalizePrice(officialAddon.price())
+                    ));
+                }
+            }
+
+            // Build order item using backend-authoritative values
+
+            OrderItem orderItem = new OrderItem(
+
+                    food.id(),
+
+                    food.name(),
+
+                    item.quantity(),
+
+                    normalizePrice(food.price()),
+
+                    item.spiceLevel(),
+
+                    food.preparationTimeMinutes(),
+
+                    addons
+            );
+
+            order.addItem(orderItem);
+
+            // Calculate actual line total
+
+            orderTotal = orderTotal.add(
+                    orderItem.getLineTotal()
+            );
+
+            // Different dishes can be prepared simultaneously
+
+            totalPreparationWork = Math.max(
+                    totalPreparationWork,
+                    food.preparationTimeMinutes()
+            );
+        }
+
+        // Save calculated totals
+
+        order.setTotalAmount(
+                orderTotal.setScale(2, RoundingMode.HALF_UP)
+        );
+
+        order.setTotalPreparationWorkMinutes(
+                totalPreparationWork
+        );
+
+        // Preserve existing behavior when paymentMethod is omitted.
+        PaymentMethod paymentMethod = request.paymentMethod() == null
+                ? PaymentMethod.CASH
+                : request.paymentMethod();
+
+        order.setStatus(
+                paymentMethod == PaymentMethod.SSLCOMMERZ
+                        ? OrderStatus.AWAITING_PAYMENT
+                        : OrderStatus.PENDING
+        );
+
+        RestaurantOrder savedOrder = orderRepository.save(order);
+
+        return toResponse(savedOrder);
+    }
+
+    // ==========================================
+    // VALIDATE ITEM AND GET OFFICIAL FOOD
+    // ==========================================
+
+    private MenuCatalog.FoodItem validateItem(
+            CreateOrderRequest.ItemRequest item
+    ) {
+
+        if (item == null) {
+
+            throw badRequest("Invalid order item.");
+        }
+
+        if (item.foodId() == null) {
+
+            throw badRequest("Invalid food ID.");
+        }
+
+        MenuCatalog.FoodItem food =
+                MenuCatalog.findById(item.foodId());
+
+        if (food == null) {
+
+            throw badRequest("Food does not exist.");
+        }
+
+        if (item.quantity() == null ||
+                item.quantity() < 1 ||
+                item.quantity() > 50) {
+
+            throw badRequest(
+                    "Quantity must be between 1 and 50."
+            );
+        }
+
+        // Validate spice level against this food's options
+
+        if (item.spiceLevel() == null ||
+                !food.spiceOptions().contains(item.spiceLevel())) {
+
+            throw badRequest(
+                    "Invalid spice level for this food."
+            );
+        }
+
+        return food;
+    }
+
+    // ==========================================
+    // NORMALIZE PRICE
+    // ==========================================
+
+    private BigDecimal normalizePrice(BigDecimal price) {
+
+        return price.setScale(2, RoundingMode.HALF_UP);
+    }
+
+    // ==========================================
+    // GET CUSTOMER ORDER
+    // ==========================================
+
+    @Transactional(readOnly = true)
+    public OrderResponse getOrder(String orderNumber) {
+
+        RestaurantOrder order = orderRepository
+                .findByOrderNumber(orderNumber)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Order not found."
+                ));
+
+        return toResponse(order);
+    }
+
+    // ==========================================
+    // CONVERT ENTITY TO RESPONSE
+    // ==========================================
+
+    private OrderResponse toResponse(RestaurantOrder order) {
+
+        List<OrderResponse.ItemResponse> itemResponses =
+                order.getItems().stream()
+
+                        .map(item -> new OrderResponse.ItemResponse(
+
+                                item.getFoodId(),
+
+                                item.getFoodName(),
+
+                                item.getQuantity(),
+
+                                item.getUnitPrice(),
+
+                                item.getLineTotal(),
+
+                                item.getSpiceLevel(),
+
+                                item.getPreparationTimeMinutes(),
+
+                                item.getSelectedAddons().stream()
+
+                                        .map(addon ->
+                                                new OrderResponse.AddonResponse(
+                                                        addon.getName(),
+                                                        addon.getPrice()
+                                                )
+                                        )
+
+                                        .toList()
+                        ))
+
+                        .toList();
+
+        return new OrderResponse(
+
+                order.getId(),
+
+                order.getOrderNumber(),
+
+                order.getRestaurantTable().getTableNumber(),
+
+                order.getStatus(),
+
+                order.getTotalAmount(),
+
+                order.getTotalPreparationWorkMinutes(),
+
+                order.getCreatedAt(),
+
+                itemResponses
+        );
+    }
+
+    // ==========================================
+    // BAD REQUEST
+    // ==========================================
+
+    private ResponseStatusException badRequest(String message) {
+
+        return new ResponseStatusException(
+                HttpStatus.BAD_REQUEST,
+                message
+        );
+    }
+}
+
+
+========== .\backend\src\main\java\com\khaidai\backend\service\PaymentService.java ==========
+package com.khaidai.backend.service;
+
+import com.khaidai.backend.dto.PaymentInitiateRequest;
+import com.khaidai.backend.dto.PaymentInitiateResponse;
+import com.khaidai.backend.entity.*;
+import com.khaidai.backend.repository.OrderRepository;
+import com.khaidai.backend.repository.PaymentRepository;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
+import org.springframework.util.StringUtils;
+import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientException;
+import org.springframework.web.server.ResponseStatusException;
+
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.net.URI;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.UUID;
+
+@Service
+public class PaymentService {
+
+    private static final BigDecimal MIN_AMOUNT =
+            new BigDecimal("10.00");
+
+    private static final BigDecimal MAX_AMOUNT =
+            new BigDecimal("500000.00");
+
+    private final OrderRepository orderRepository;
+    private final PaymentRepository paymentRepository;
+    private final RestClient restClient = RestClient.create();
+
+    @Value("${sslcommerz.store-id:}")
+    private String storeId;
+
+    @Value("${sslcommerz.store-password:}")
+    private String storePassword;
+
+    @Value("${sslcommerz.base-url:https://sandbox.sslcommerz.com}")
+    private String baseUrl;
+
+    @Value("${sslcommerz.callback-base-url:http://localhost:8090}")
+    private String callbackBaseUrl;
+
+    public PaymentService(
+            OrderRepository orderRepository,
+            PaymentRepository paymentRepository
+    ) {
+        this.orderRepository = orderRepository;
+        this.paymentRepository = paymentRepository;
+    }
+
+    @Transactional(noRollbackFor = ResponseStatusException.class)
+    public PaymentInitiateResponse initiatePayment(
+            PaymentInitiateRequest request
+    ) {
+
+        if (!StringUtils.hasText(storeId) ||
+                !StringUtils.hasText(storePassword)) {
+
+            throw new ResponseStatusException(
+                    HttpStatus.SERVICE_UNAVAILABLE,
+                    "SSLCommerz credentials are not configured."
+            );
+        }
+
+        RestaurantOrder order = orderRepository
+                .findByOrderNumber(request.orderNumber())
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Order not found."
+                ));
+
+        if (order.getStatus() != OrderStatus.AWAITING_PAYMENT) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "This order is not awaiting online payment."
+            );
+        }
+
+        BigDecimal amount = order.getTotalAmount()
+                .setScale(2, RoundingMode.HALF_UP);
+
+        if (amount.compareTo(MIN_AMOUNT) < 0 ||
+                amount.compareTo(MAX_AMOUNT) > 0) {
+
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Payment amount must be between BDT 10 and BDT 500,000."
+            );
+        }
+
+        // Reuse an existing pending session to avoid duplicate charges.
+        List<Payment> previousPayments =
+                paymentRepository.findAllByOrder_IdOrderByCreatedAtDesc(
+                        order.getId()
+                );
+
+        for (Payment previous : previousPayments) {
+
+            if (previous.getPaymentMethod() == PaymentMethod.SSLCOMMERZ &&
+                    previous.getStatus() == PaymentStatus.PENDING) {
+
+                if (StringUtils.hasText(previous.getGatewayPageUrl())) {
+                    return toResponse(previous);
+                }
+
+                throw new ResponseStatusException(
+                        HttpStatus.CONFLICT,
+                        "A payment session is already being created. Please try again shortly."
+                );
+            }
+        }
+
+        String transactionId =
+                "KD" + UUID.randomUUID()
+                        .toString()
+                        .replace("-", "")
+                        .substring(0, 28)
+                        .toUpperCase(Locale.ROOT);
+
+        Payment payment = new Payment();
+
+        payment.setOrder(order);
+        payment.setTransactionId(transactionId);
+        payment.setPaymentMethod(PaymentMethod.SSLCOMMERZ);
+        payment.setStatus(PaymentStatus.PENDING);
+        payment.setAmount(amount);
+        payment.setCurrency("BDT");
+
+        paymentRepository.saveAndFlush(payment);
+
+        MultiValueMap<String, String> form =
+                new LinkedMultiValueMap<>();
+
+        form.add("store_id", storeId);
+        form.add("store_passwd", storePassword);
+        form.add("total_amount", amount.toPlainString());
+        form.add("currency", "BDT");
+        form.add("tran_id", transactionId);
+
+        form.add("success_url", callbackUrl("success"));
+        form.add("fail_url", callbackUrl("fail"));
+        form.add("cancel_url", callbackUrl("cancel"));
+        form.add("ipn_url", callbackUrl("ipn"));
+
+        form.add("cus_name", request.customerName());
+        form.add("cus_email", request.customerEmail());
+        form.add("cus_phone", request.customerPhone());
+        form.add("cus_add1", request.customerAddress());
+        form.add("cus_city", request.customerCity());
+        form.add("cus_country", "Bangladesh");
+
+        if (StringUtils.hasText(request.customerPostcode())) {
+            form.add("cus_postcode", request.customerPostcode());
+        }
+
+        int itemCount = order.getItems().stream()
+                .mapToInt(item -> item.getQuantity())
+                .sum();
+
+        form.add("shipping_method", "NO");
+        form.add("product_name", "Khai-Dai Restaurant Order");
+        form.add("product_category", "food");
+        form.add("product_profile", "general");
+        form.add("num_of_item", String.valueOf(Math.max(itemCount, 1)));
+
+        form.add("value_a", order.getOrderNumber());
+        form.add("value_b", transactionId);
+
+        Map<?, ?> gatewayResponse;
+
+        try {
+
+            String apiUrl = baseUrl.replaceAll("/+$", "")
+                    + "/gwprocess/v4/api.php";
+
+            gatewayResponse = restClient.post()
+                    .uri(apiUrl)
+                    .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                    .accept(MediaType.APPLICATION_JSON)
+                    .body(form)
+                    .retrieve()
+                    .body(Map.class);
+
+        } catch (RestClientException exception) {
+
+            payment.setStatus(PaymentStatus.FAILED);
+            paymentRepository.save(payment);
+
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_GATEWAY,
+                    "Unable to connect to SSLCommerz. Please try again."
+            );
+        }
+
+        if (gatewayResponse == null) {
+            payment.setStatus(PaymentStatus.FAILED);
+            paymentRepository.save(payment);
+
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_GATEWAY,
+                    "SSLCommerz returned an empty response."
+            );
+        }
+
+        String gatewayStatus = value(gatewayResponse, "status");
+        String gatewayPageUrl = value(
+                gatewayResponse,
+                "GatewayPageURL"
+        );
+
+        String sessionKey = value(
+                gatewayResponse,
+                "sessionkey"
+        );
+
+        if (!"SUCCESS".equalsIgnoreCase(gatewayStatus) ||
+                !StringUtils.hasText(gatewayPageUrl) ||
+                !StringUtils.hasText(sessionKey) ||
+                !isTrustedGatewayUrl(gatewayPageUrl)) {
+
+            payment.setStatus(PaymentStatus.FAILED);
+            paymentRepository.save(payment);
+
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_GATEWAY,
+                    "SSLCommerz could not create a valid payment session."
+            );
+        }
+
+        payment.setGatewaySessionKey(sessionKey);
+        payment.setGatewayPageUrl(gatewayPageUrl);
+
+        paymentRepository.save(payment);
+
+        return toResponse(payment);
+    }
+
+    private String callbackUrl(String action) {
+        return callbackBaseUrl.replaceAll("/+$", "")
+                + "/api/payments/callback/" + action;
+    }
+
+    private boolean isTrustedGatewayUrl(String gatewayPageUrl) {
+        try {
+            URI gatewayUri = URI.create(gatewayPageUrl);
+            URI configuredUri = URI.create(baseUrl);
+
+            return "https".equalsIgnoreCase(gatewayUri.getScheme())
+                    && configuredUri.getHost() != null
+                    && configuredUri.getHost().equalsIgnoreCase(
+                            gatewayUri.getHost()
+                    );
+
+        } catch (IllegalArgumentException exception) {
+            return false;
+        }
+    }
+
+    private String value(Map<?, ?> response, String key) {
+        Object result = response.get(key);
+        return result == null ? "" : result.toString();
+    }
+
+    private PaymentInitiateResponse toResponse(Payment payment) {
+        return new PaymentInitiateResponse(
+                payment.getTransactionId(),
+                payment.getAmount(),
+                payment.getCurrency(),
+                payment.getGatewayPageUrl(),
+                payment.getStatus()
+        );
+    }
+}
+
+
+========== .\backend\src\main\java\com\khaidai\backend\controller\OrderController.java ==========
+
+package com.khaidai.backend.controller;
+
+import com.khaidai.backend.dto.CreateOrderRequest;
+import com.khaidai.backend.dto.OrderResponse;
+import com.khaidai.backend.service.OrderService;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("/api/orders")
+@CrossOrigin(
+    originPatterns = {
+        "http://localhost:*",
+        "http://127.0.0.1:*",
+        "http://192.168.*:*",
+        "http://10.*:*",
+        "http://172.*:*"
+    }
+)
+public class OrderController {
+
+    private final OrderService orderService;
+
+    public OrderController(OrderService orderService) {
+        this.orderService = orderService;
+    }
+
+    // ==========================================
+    // CUSTOMER SUBMITS ORDER
+    // ==========================================
+
+    @PostMapping
+    public ResponseEntity<OrderResponse> createOrder(
+            @RequestBody CreateOrderRequest request
+    ) {
+
+        OrderResponse response =
+                orderService.createOrder(request);
+
+        return ResponseEntity
+                .status(HttpStatus.CREATED)
+                .body(response);
+    }
+
+    // ==========================================
+    // CUSTOMER TRACKS ORDER
+    // ==========================================
+
+    @GetMapping("/{orderNumber}")
+    public ResponseEntity<OrderResponse> getOrder(
+            @PathVariable String orderNumber
+    ) {
+
+        return ResponseEntity.ok(
+                orderService.getOrder(orderNumber)
+        );
+    }
+}
+
+
+
+========== .\backend\src\main\java\com\khaidai\backend\controller\PaymentController.java ==========
+package com.khaidai.backend.controller;
+
+import com.khaidai.backend.dto.PaymentInitiateRequest;
+import com.khaidai.backend.dto.PaymentInitiateResponse;
+import com.khaidai.backend.service.PaymentService;
+
+import jakarta.validation.Valid;
+
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("/api/payments")
+@CrossOrigin(
+    originPatterns = {
+        "http://localhost:*",
+        "http://127.0.0.1:*",
+        "http://192.168.*:*",
+        "http://10.*:*",
+        "http://172.*:*"
+    }
+)
+public class PaymentController {
+
+    private final PaymentService paymentService;
+
+    public PaymentController(PaymentService paymentService) {
+        this.paymentService = paymentService;
+    }
+
+    @PostMapping("/initiate")
+    public ResponseEntity<PaymentInitiateResponse> initiatePayment(
+            @Valid @RequestBody PaymentInitiateRequest request
+    ) {
+
+        return ResponseEntity.ok(
+                paymentService.initiatePayment(request)
+        );
+    }
+}
+
+
+========== .\frontend\src\App.tsx ==========
+import { useMemo, useState } from "react";
+
+import "./App.css";
+import ManagerDashboard from "./ManagerDashboard";
+
+import AdminQrPage from "./AdminQrPage";
+import OrderTracking from "./OrderTracking";
+
+import TableSessionBanner from "./TableSessionBanner";
+
+// ==========================================
+
+// TYPES
+
+// ==========================================
+
+type SpiceLevel = "Not Spicy" | "Mild" | "Medium" | "Hot";
+
+type AddOn = {
+
+  id: string;
+
+  name: string;
+
+  price: number;
+
+};
+
+type Food = {
+
+  id: number;
+
+  name: string;
+
+  category: string;
+
+  description: string;
+
+  price: number;
+
+  time: number;
+
+  defaultSpice: SpiceLevel;
+
+  spiceOptions: SpiceLevel[];
+
+  ingredients: string[];
+
+  allergens: string[];
+
+  addons: AddOn[];
+
+  image: string;
+
+};
+
+type CartItem = {
+
+  food: Food;
+
+  quantity: number;
+
+  spiceLevel: SpiceLevel;
+
+  selectedAddons: AddOn[];
+
+};
+
+type CreatedOrder = {
+  id: number;
+  orderNumber: string;
+  tableNumber: number;
+  status: string;
+  totalAmount: number | string;
+  totalPreparationWorkMinutes: number;
+  createdAt: string;
+};
+
+const API_BASE_URL =
+  `${window.location.protocol}//${window.location.hostname}:8090`;
+
+const tableToken =
+  new URLSearchParams(window.location.search).get("tableToken")?.trim() ?? "";
+
+const trackingStorageKey = tableToken
+  ? `khaidai.activeOrder.${tableToken}`
+  : "";  
+
+const allSpiceLevels: SpiceLevel[] = [
+
+  "Not Spicy",
+
+  "Mild",
+
+  "Medium",
+
+  "Hot",
+
+];
+
+// ==========================================
+
+// HELPER FUNCTIONS
+
+// ==========================================
+
+const getAddOnTotal = (addons: AddOn[]) =>
+
+  addons.reduce((total, addon) => total + addon.price, 0);
+
+const getCartItemKey = (item: CartItem) => {
+
+  const addonIds = item.selectedAddons
+
+    .map((addon) => addon.id)
+
+    .sort()
+
+    .join(",");
+
+  return `${item.food.id}|${item.spiceLevel}|${addonIds}`;
+
+};
+
+// ==========================================
+
+// FOOD DATA
+
+// ==========================================
+
+const foods: Food[] = [
+
+  {
+
+    id: 1,
+
+    name: "Chicken Biryani",
+
+    category: "Main Course",
+
+    description:
+
+      "Fragrant basmati rice with tender chicken and aromatic spices.",
+
+    price: 320,
+
+    time: 25,
+
+    defaultSpice: "Medium",
+
+    spiceOptions: allSpiceLevels,
+
+    ingredients: [
+
+      "Basmati rice",
+
+      "Chicken",
+
+      "Yogurt",
+
+      "Onion",
+
+      "Ginger and garlic",
+
+      "Biryani spices",
+
+      "Fresh coriander",
+
+    ],
+
+    allergens: ["Milk (yogurt)"],
+
+    addons: [
+
+      { id: "extra-chicken", name: "Extra chicken", price: 120 },
+
+      { id: "boiled-egg", name: "Boiled egg", price: 25 },
+
+      { id: "extra-rice", name: "Extra rice", price: 60 },
+
+      { id: "raita", name: "Extra raita", price: 30 },
+
+    ],
+
+    image:
+
+      "https://images.unsplash.com/photo-1559528896-c5310744cce8?w=700&auto=format&fit=crop",
+
+  },
+
+  {
+
+    id: 2,
+
+    name: "Beef Burger",
+
+    category: "Fast Food",
+
+    description:
+
+      "Juicy beef patty with fresh lettuce, cheese and special sauce.",
+
+    price: 280,
+
+    time: 15,
+
+    defaultSpice: "Mild",
+
+    spiceOptions: allSpiceLevels,
+
+    ingredients: [
+
+      "Beef patty",
+
+      "Burger bun",
+
+      "Cheese",
+
+      "Lettuce",
+
+      "Tomato",
+
+      "Onion",
+
+      "Special sauce",
+
+    ],
+
+    allergens: [
+
+      "Wheat (bun)",
+
+      "Milk (cheese)",
+
+      "Check sauce ingredients",
+
+    ],
+
+    addons: [
+
+      { id: "extra-cheese", name: "Extra cheese", price: 40 },
+
+      { id: "extra-patty", name: "Extra beef patty", price: 120 },
+
+      { id: "jalapenos", name: "Jalapeños", price: 25 },
+
+      { id: "extra-sauce", name: "Extra sauce", price: 20 },
+
+    ],
+
+    image:
+
+      "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=700",
+
+  },
+
+  {
+
+    id: 3,
+
+    name: "Chicken Pasta",
+
+    category: "Main Course",
+
+    description: "Creamy pasta with grilled chicken and herbs.",
+
+    price: 350,
+
+    time: 20,
+
+    defaultSpice: "Mild",
+
+    spiceOptions: allSpiceLevels,
+
+    ingredients: [
+
+      "Pasta",
+
+      "Chicken",
+
+      "Cream",
+
+      "Parmesan cheese",
+
+      "Garlic",
+
+      "Mixed herbs",
+
+    ],
+
+    allergens: ["Wheat", "Milk"],
+
+    addons: [
+
+      { id: "extra-chicken", name: "Extra chicken", price: 100 },
+
+      { id: "extra-cheese", name: "Extra cheese", price: 40 },
+
+      { id: "mushrooms", name: "Mushrooms", price: 50 },
+
+      { id: "garlic-bread", name: "Garlic bread", price: 60 },
+
+    ],
+
+    image:
+
+      "https://images.unsplash.com/photo-1473093295043-cdd812d0e601?w=700",
+
+  },
+
+  {
+
+    id: 4,
+
+    name: "Grilled Chicken",
+
+    category: "Main Course",
+
+    description:
+
+      "Tender grilled chicken served with fresh vegetables.",
+
+    price: 420,
+
+    time: 30,
+
+    defaultSpice: "Medium",
+
+    spiceOptions: allSpiceLevels,
+
+    ingredients: [
+
+      "Chicken",
+
+      "Olive oil",
+
+      "Garlic",
+
+      "Lemon",
+
+      "Mixed herbs",
+
+      "Seasonal vegetables",
+
+    ],
+
+    allergens: ["Verify marinade and seasoning"],
+
+    addons: [
+
+      { id: "extra-chicken", name: "Extra chicken portion", price: 150 },
+
+      { id: "extra-vegetables", name: "Extra vegetables", price: 50 },
+
+      { id: "mashed-potatoes", name: "Mashed potatoes", price: 60 },
+
+      { id: "extra-sauce", name: "Extra sauce", price: 25 },
+
+    ],
+
+    image:
+
+      "https://images.unsplash.com/photo-1532550907401-a500c9a57435?w=700",
+
+  },
+
+  {
+
+    id: 5,
+
+    name: "French Fries",
+
+    category: "Snacks",
+
+    description:
+
+      "Golden crispy potato fries with a delicious dip.",
+
+    price: 150,
+
+    time: 10,
+
+    defaultSpice: "Not Spicy",
+
+    spiceOptions: allSpiceLevels,
+
+    ingredients: [
+
+      "Potatoes",
+
+      "Vegetable oil",
+
+      "Salt",
+
+    ],
+
+    allergens: ["Check shared fryer and seasoning"],
+
+    addons: [
+
+      { id: "extra-fries", name: "Extra fries", price: 80 },
+
+      { id: "cheese-dip", name: "Cheese dip", price: 30 },
+
+      { id: "spicy-seasoning", name: "Spicy seasoning", price: 15 },
+
+    ],
+
+    image:
+
+      "https://images.unsplash.com/photo-1573080496219-bb080dd4f877?w=700",
+
+  },
+
+  {
+
+    id: 6,
+
+    name: "Fresh Lemonade",
+
+    category: "Drinks",
+
+    description:
+
+      "Refreshing fresh lemon juice with a hint of mint.",
+
+    price: 100,
+
+    time: 5,
+
+    defaultSpice: "Not Spicy",
+
+    spiceOptions: ["Not Spicy"],
+
+    ingredients: [
+
+      "Fresh lemon",
+
+      "Water",
+
+      "Sugar",
+
+      "Mint leaves",
+
+      "Ice",
+
+    ],
+
+    allergens: ["Not yet verified"],
+
+    addons: [
+
+      { id: "extra-lemon", name: "Extra lemon", price: 15 },
+
+      { id: "extra-mint", name: "Extra mint", price: 10 },
+
+      { id: "extra-sugar", name: "Extra sugar", price: 0 },
+
+    ],
+
+    image:
+
+      "https://images.unsplash.com/photo-1656936637945-571e3f0893f9?w=700&auto=format&fit=crop",
+
+  },
+
+];
+
+// ==========================================
+
+// CATEGORIES
+
+// ==========================================
+
+const categories = [
+
+  "All",
+
+  "Main Course",
+
+  "Fast Food",
+
+  "Snacks",
+
+  "Drinks",
+
+];
+
+// ==========================================
+
+// MAIN APP
+
+// ==========================================
+
+function CustomerApp() {
+
+  const [activeCategory, setActiveCategory] = useState("All");
+
+  const [search, setSearch] = useState("");
+
+  const [cartItems, setCartItems] = useState<CartItem[]>([]);
+
+  const [isCartOpen, setIsCartOpen] = useState(false);
+
+  const [selectedFood, setSelectedFood] = useState<Food | null>(null);
+
+  const [selectedSpiceLevel, setSelectedSpiceLevel] =
+
+    useState<SpiceLevel>("Medium");
+
+  const [selectedAddons, setSelectedAddons] = useState<AddOn[]>([]);
+
+  const [customerNote, setCustomerNote] = useState("");
+  const [isSubmittingOrder, setIsSubmittingOrder] = useState(false);
+  const [orderError, setOrderError] = useState("");
+const [trackingOrderNumber, setTrackingOrderNumber] =
+  useState<string | null>(() => {
+    if (!trackingStorageKey) return null;
+
+    try {
+      return window.sessionStorage.getItem(trackingStorageKey);
+    } catch {
+      return null;
+    }
+  });
+
+  // ==========================================
+
+  // OPEN FOOD DETAILS
+
+  // ==========================================
+
+  const openFoodDetails = (food: Food) => {
+
+    setSelectedFood(food);
+
+    setSelectedSpiceLevel(food.defaultSpice);
+
+    setSelectedAddons([]);
+
+  };
+
+  // ==========================================
+
+  // TOGGLE ADD-ON
+
+  // ==========================================
+
+  const toggleAddon = (addon: AddOn) => {
+
+    setSelectedAddons((current) => {
+
+      const alreadySelected = current.some(
+
+        (item) => item.id === addon.id
+
+      );
+
+      if (alreadySelected) {
+
+        return current.filter((item) => item.id !== addon.id);
+
+      }
+
+      return [...current, addon];
+
+    });
+
+  };
+
+  // ==========================================
+
+  // ADD FOOD TO CART
+
+  // ==========================================
+
+  const addToCart = (
+
+    food: Food,
+
+    spiceLevel: SpiceLevel,
+
+    addons: AddOn[]
+
+  ) => {
+    setOrderError("");
+
+    const normalizedAddons = [...addons].sort((a, b) =>
+
+      a.id.localeCompare(b.id)
+
+    );
+
+    const newItem: CartItem = {
+
+      food,
+
+      quantity: 1,
+
+      spiceLevel,
+
+      selectedAddons: normalizedAddons,
+
+    };
+
+    const newKey = getCartItemKey(newItem);
+
+    setCartItems((currentItems) => {
+
+      const existingItem = currentItems.find(
+
+        (item) => getCartItemKey(item) === newKey
+
+      );
+
+      if (existingItem) {
+
+        return currentItems.map((item) =>
+
+          getCartItemKey(item) === newKey
+
+            ? { ...item, quantity: item.quantity + 1 }
+
+            : item
+
+        );
+
+      }
+
+      return [...currentItems, newItem];
+
+    });
+
+  };
+
+  // ==========================================
+
+  // UPDATE CART QUANTITY
+
+  // ==========================================
+
+  const updateCartQuantity = (
+
+    itemKey: string,
+
+    change: number
+
+  ) => {
+
+    setCartItems((currentItems) =>
+
+      currentItems
+
+        .map((item) =>
+
+          getCartItemKey(item) === itemKey
+
+            ? { ...item, quantity: item.quantity + change }
+
+            : item
+
+        )
+
+        .filter((item) => item.quantity > 0)
+
+    );
+
+  };
+
+  // ==========================================
+
+  // REMOVE CART ITEM
+
+  // ==========================================
+
+  const removeFromCart = (itemKey: string) => {
+
+    setCartItems((currentItems) =>
+
+      currentItems.filter(
+
+        (item) => getCartItemKey(item) !== itemKey
+
+      )
+
+    );
+
+  };
+
+  // ==========================================
+
+  // CHANGE SPICE LEVEL IN CART
+
+  // ==========================================
+
+  const updateCartSpice = (
+
+    itemKey: string,
+
+    newSpice: SpiceLevel
+
+  ) => {
+
+    setCartItems((currentItems) => {
+
+      const sourceItem = currentItems.find(
+
+        (item) => getCartItemKey(item) === itemKey
+
+      );
+
+      if (!sourceItem || sourceItem.spiceLevel === newSpice) {
+
+        return currentItems;
+
+      }
+
+      const updatedItem: CartItem = {
+
+        ...sourceItem,
+
+        spiceLevel: newSpice,
+
+      };
+
+      const targetKey = getCartItemKey(updatedItem);
+
+      const targetExists = currentItems.some(
+
+        (item) => getCartItemKey(item) === targetKey
+
+      );
+
+      if (targetExists) {
+
+        return currentItems
+
+          .filter((item) => getCartItemKey(item) !== itemKey)
+
+          .map((item) =>
+
+            getCartItemKey(item) === targetKey
+
+              ? {
+
+                  ...item,
+
+                  quantity:
+
+                    item.quantity + sourceItem.quantity,
+
+                }
+
+              : item
+
+          );
+
+      }
+
+      return currentItems.map((item) =>
+
+        getCartItemKey(item) === itemKey ? updatedItem : item
+
+      );
+
+    });
+
+  };
+
+  // ==========================================
+
+  // CART CALCULATIONS
+
+  // ==========================================
+
+  const cartCount = cartItems.reduce(
+
+    (total, item) => total + item.quantity,
+
+    0
+
+  );
+
+  const subtotal = cartItems.reduce(
+
+    (total, item) => {
+
+      const unitPrice =
+
+        item.food.price + getAddOnTotal(item.selectedAddons);
+
+      return total + unitPrice * item.quantity;
+
+    },
+
+    0
+
+  );
+
+const estimatedPrepTime = cartItems.reduce(
+    (longest, item) => Math.max(longest, item.food.time),
+    0
+);
+
+  const selectedAddOnTotal = getAddOnTotal(selectedAddons);
+
+  // ==========================================
+
+  // SUBMIT CUSTOMER ORDER TO BACKEND
+
+  // ==========================================
+
+  const submitOrder = async () => {
+
+    if (!tableToken) {
+      setOrderError(
+        "This menu is not linked to a table. Please scan the QR code on your table."
+      );
+      return;
+    }
+
+    if (cartItems.length === 0) {
+      setOrderError("Your cart is empty.");
+      return;
+    }
+
+    setIsSubmittingOrder(true);
+    setOrderError("");
+
+    try {
+
+const payload = {
+  tableToken,
+  customerNote: customerNote.trim() || null,
+
+  items: cartItems.map((item) => ({
+    foodId: item.food.id,
+
+    quantity: item.quantity,
+
+    spiceLevel: item.spiceLevel,
+
+    selectedAddons: item.selectedAddons.map((addon) => ({
+      id: addon.id,
+    })),
+  })),
+};
+
+      const response = await fetch(`${API_BASE_URL}/api/orders`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Accept": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const responseText = await response.text();
+
+      let responseData: any = null;
+
+      try {
+        responseData = responseText ? JSON.parse(responseText) : null;
+      } catch {
+        responseData = null;
+      }
+
+      if (!response.ok) {
+        throw new Error(
+          responseData?.detail ||
+          responseData?.message ||
+          responseData?.error ||
+          `Unable to submit order. Server returned ${response.status}.`
+        );
+      }
+
+      if (!responseData?.orderNumber) {
+        throw new Error(
+          "The server received a response, but no order number was returned."
+        );
+      }
+
+      const createdOrder = responseData as CreatedOrder;
+
+setTrackingOrderNumber(createdOrder.orderNumber);
+
+try {
+  window.sessionStorage.setItem(
+    trackingStorageKey,
+    createdOrder.orderNumber
+  );
+} catch {
+  // Tracking remains available until this page is closed.
+}
+      setCartItems([]);
+      setCustomerNote("");
+      setOrderError("");
+
+    } catch (error) {
+
+      setOrderError(
+        error instanceof Error
+          ? error.message
+          : "Something went wrong while submitting your order."
+      );
+
+    } finally {
+
+      setIsSubmittingOrder(false);
+
+    }
+  };
+
+  // ==========================================
+
+  // FILTER FOOD
+
+  // ==========================================
+
+  const filteredFoods = useMemo(() => {
+
+    return foods.filter((food) => {
+
+      const matchesCategory =
+
+        activeCategory === "All" ||
+
+        food.category === activeCategory;
+
+      const matchesSearch = food.name
+
+        .toLowerCase()
+
+        .includes(search.toLowerCase());
+
+      return matchesCategory && matchesSearch;
+
+    });
+
+  }, [activeCategory, search]);
+
+  // ==========================================
+
+  // SCROLL TO MENU
+
+  // ==========================================
+
+  const scrollToMenu = () => {
+
+    document.getElementById("menu")?.scrollIntoView({
+
+      behavior: "smooth",
+
+    });
+
+  };
+
+  // ==========================================
+
+  // RENDER
+
+  // ==========================================
+
+  return (
+
+    <div className="app">
+
+      {/* NAVBAR */}
+
+      <header className="navbar">
+
+        <a className="logo" href="#">
+
+          Khai<span>-</span>Dai
+
+          <span className="logo-dot">.</span>
+
+        </a>
+
+        <nav className="nav-links">
+
+          <a href="#home">Home</a>
+
+          <a href="#menu">Our Menu</a>
+
+          <a href="#about">About Us</a>
+
+        </nav>
+
+        <button
+
+          className="cart-button"
+
+          onClick={() => setIsCartOpen(true)}
+        >
+
+          <span>🛒</span>
+
+          My Order
+
+          <span className="cart-count">{cartCount}</span>
+
+        </button>
+
+      </header>
+
+      <main>
+
+        {/* HERO */}
+
+        <section className="hero" id="home">
+
+          <div className="hero-content">
+
+            <span className="eyebrow">
+
+              GOOD FOOD. GOOD MOOD.
+
+            </span>
+
+            <h1>
+
+              Delicious food,
+
+              <br />
+
+              <span>made with love.</span>
+
+            </h1>
+
+            <p>
+
+              Fresh ingredients, amazing flavours and
+
+              unforgettable meals. Discover your next
+
+              favourite dish at Khai-Dai.
+
+            </p>
+
+            <button
+
+              className="primary-button"
+
+              onClick={scrollToMenu}
+
+            >
+
+              Explore Our Menu <span>→</span>
+
+            </button>
+
+            <div className="hero-note">
+
+              <span>✦</span>
+
+              Freshly prepared for you
+
+            </div>
+
+          </div>
+
+          <div className="hero-image">
+
+            <img
+
+              src="https://images.unsplash.com/photo-1547592180-85f173990554?w=1000"
+
+              alt="Freshly prepared restaurant food"
+
+            />
+
+            <div className="floating-card">
+
+              <span>🍽️</span>
+
+              <div>
+
+                <strong>Made fresh</strong>
+
+                <small>Every single order</small>
+
+              </div>
+
+            </div>
+
+          </div>
+
+        </section>
+
+        {/* MENU */}
+
+        <section className="menu-section" id="menu">
+
+          <div className="section-heading">
+
+            <div>
+
+              <span className="eyebrow">
+
+                DISCOVER OUR FOOD
+
+              </span>
+
+              <h2>
+
+                Explore our menu<span>.</span>
+
+              </h2>
+
+              <p>
+
+                Something delicious is waiting for you.
+
+              </p>
+
+            </div>
+
+            <div className="search-box">
+
+              <span>⌕</span>
+
+              <input
+
+                type="search"
+
+                placeholder="Search your favourite food..."
+
+                value={search}
+
+                onChange={(e) => setSearch(e.target.value)}
+
+              />
+
+            </div>
+
+          </div>
+
+          {/* CATEGORY FILTER */}
+
+          <div className="category-list">
+
+            {categories.map((category) => (
+
+              <button
+
+                key={category}
+
+                className={
+
+                  activeCategory === category
+
+                    ? "category-button active"
+
+                    : "category-button"
+
+                }
+
+                onClick={() => setActiveCategory(category)}
+
+              >
+
+                {category}
+
+              </button>
+
+            ))}
+
+          </div>
+
+          {/* FOOD CARDS */}
+
+          <div className="food-grid">
+
+            {filteredFoods.map((food) => (
+
+              <article
+
+                className="food-card"
+
+                key={food.id}
+
+              >
+
+                <div className="food-image">
+
+                  <img
+
+                    src={food.image}
+
+                    alt={food.name}
+
+                  />
+
+                  <span className="food-time">
+
+                    ◷ {food.time} min
+
+                  </span>
+
+                </div>
+
+                <div className="food-info">
+
+                  <span className="food-category">
+
+                    {food.category}
+
+                  </span>
+
+                  <h3>{food.name}</h3>
+
+                  <p>{food.description}</p>
+
+                  <div className="food-meta">
+
+                    <span>🌶️ {food.defaultSpice}</span>
+
+                    <strong>৳{food.price}</strong>
+
+                  </div>
+
+                  <button
+
+                    className="details-button"
+
+                    onClick={() => openFoodDetails(food)}
+
+                  >
+
+                    View ingredients & details
+
+                  </button>
+
+                  <button
+
+                    className="add-button"
+
+                    onClick={() => openFoodDetails(food)}
+
+                  >
+
+                    + Customize & add to order
+
+                  </button>
+
+                </div>
+
+              </article>
+
+            ))}
+
+          </div>
+
+          {filteredFoods.length === 0 && (
+
+            <div className="empty-state">
+
+              <span>🍽️</span>
+
+              <h3>No dishes found</h3>
+
+              <p>Try searching for something else.</p>
+
+            </div>
+
+          )}
+
+        </section>
+
+        {/* ABOUT */}
+
+        <section className="about-section" id="about">
+
+          <span className="eyebrow">
+
+            WELCOME TO KHAI-DAI
+
+          </span>
+
+          <h2>
+
+            Good food brings people together.
+
+          </h2>
+
+          <p>
+
+            We believe every meal should be a memorable
+
+            experience. Explore our menu and let us prepare
+
+            something special for you.
+
+          </p>
+
+        </section>
+
+      </main>
+
+      {/* =================================
+
+          FOOD DETAILS, SPICE AND ADD-ONS
+
+      ================================= */}
+
+      {selectedFood && (
+
+        <div
+
+          className="modal-backdrop"
+
+          onClick={() => setSelectedFood(null)}
+
+        >
+
+          <div
+
+            className="food-modal"
+
+            role="dialog"
+
+            aria-modal="true"
+
+            aria-labelledby="food-modal-title"
+
+            onClick={(e) => e.stopPropagation()}
+
+          >
+
+            <button
+
+              className="modal-close"
+
+              onClick={() => setSelectedFood(null)}
+
+              aria-label="Close food details"
+
+            >
+
+              ×
+
+            </button>
+
+            <img
+
+              className="modal-food-image"
+
+              src={selectedFood.image}
+
+              alt={selectedFood.name}
+
+            />
+
+            <div className="modal-content">
+
+              <span className="food-category">
+
+                {selectedFood.category}
+
+              </span>
+
+              <h2 id="food-modal-title">
+
+                {selectedFood.name}
+
+              </h2>
+
+              <p>{selectedFood.description}</p>
+
+              <div className="detail-grid">
+
+                <div className="detail-item">
+
+                  <span>Preparation time</span>
+
+                  <strong>
+
+                    ◷ {selectedFood.time} minutes
+
+                  </strong>
+
+                </div>
+
+                <div className="detail-item">
+
+                  <span>Base price</span>
+
+                  <strong>
+
+                    ৳{selectedFood.price}
+
+                  </strong>
+
+                </div>
+
+              </div>
+
+              {/* SPICE SELECTOR */}
+
+              <div className="spice-selector">
+
+                <h3>🌶️ Choose your spice level</h3>
+
+                <p>
+
+                  How spicy would you like your food?
+
+                </p>
+
+                <div className="spice-options">
+
+                  {selectedFood.spiceOptions.map((level) => (
+
+                    <button
+
+                      key={level}
+
+                      type="button"
+
+                      className={
+
+                        selectedSpiceLevel === level
+
+                          ? "spice-option active"
+
+                          : "spice-option"
+
+                      }
+
+                      onClick={() => setSelectedSpiceLevel(level)}
+
+                    >
+
+                      {level === "Not Spicy"
+
+                        ? "😊"
+
+                        : level === "Mild"
+
+                        ? "🌶️"
+
+                        : level === "Medium"
+
+                        ? "🌶️🌶️"
+
+                        : "🌶️🌶️🌶️"}
+
+                      <span>{level}</span>
+
+                    </button>
+
+                  ))}
+
+                </div>
+
+                <p className="spice-note">
+
+                  Selected: <strong>{selectedSpiceLevel}</strong>
+
+                </p>
+
+              </div>
+
+              {/* ADD-ON SELECTOR */}
+
+              <div className="addon-selector">
+
+                <div className="addon-heading">
+
+                  <div>
+
+                    <h3>➕ Customize your food</h3>
+
+                    <p>
+
+                      Choose any extras you would like.
+
+                    </p>
+
+                  </div>
+
+                  <span className="optional-label">
+
+                    OPTIONAL
+
+                  </span>
+
+                </div>
+
+                <div className="addon-options">
+
+                  {selectedFood.addons.map((addon) => {
+
+                    const isSelected = selectedAddons.some(
+
+                      (item) => item.id === addon.id
+
+                    );
+
+                    return (
+
+                      <label
+
+                        key={addon.id}
+
+                        className={
+
+                          isSelected
+
+                            ? "addon-option selected"
+
+                            : "addon-option"
+
+                        }
+
+                      >
+
+                        <input
+
+                          type="checkbox"
+
+                          checked={isSelected}
+
+                          onChange={() => toggleAddon(addon)}
+
+                        />
+
+                        <span className="addon-option-info">
+
+                          <span className="addon-name">
+
+                            {addon.name}
+
+                          </span>
+
+                          <span className="addon-price">
+
+                            {addon.price === 0
+
+                              ? "Free"
+
+                              : `+৳${addon.price}`}
+
+                          </span>
+
+                        </span>
+
+                      </label>
+
+                    );
+
+                  })}
+
+                </div>
+
+                <div className="addon-total">
+
+                  <span>Selected add-ons</span>
+
+                  <strong>
+
+                    +৳{selectedAddOnTotal}
+
+                  </strong>
+
+                </div>
+
+              </div>
+
+              {/* INGREDIENTS */}
+
+              <div className="detail-list">
+
+                <h3>🥗 Ingredients</h3>
+
+                <ul>
+
+                  {selectedFood.ingredients.map((ingredient) => (
+
+                    <li key={ingredient}>{ingredient}</li>
+
+                  ))}
+
+                </ul>
+
+              </div>
+
+              {/* ALLERGENS */}
+
+              <div className="detail-list allergen-section">
+
+                <h3>⚠️ Allergens & kitchen checks</h3>
+
+                <ul>
+
+                  {selectedFood.allergens.map((allergen) => (
+
+                    <li key={allergen}>{allergen}</li>
+
+                  ))}
+
+                </ul>
+
+              </div>
+
+              <p className="demo-warning">
+
+                Sample menu information and add-on prices.
+
+                Confirm actual ingredients, allergens and
+
+                available customizations with restaurant staff.
+
+              </p>
+
+              {/* FINAL PRICE */}
+
+              <div className="customized-price">
+
+                <span>Total per serving</span>
+
+                <strong>
+
+                  ৳{selectedFood.price + selectedAddOnTotal}
+
+                </strong>
+
+              </div>
+
+              <button
+
+                className="modal-add-button"
+
+                onClick={() => {
+
+                  addToCart(
+
+                    selectedFood,
+
+                    selectedSpiceLevel,
+
+                    selectedAddons
+
+                  );
+
+                  setSelectedFood(null);
+
+                }}
+
+              >
+
+                + Add to order — ৳
+
+                {selectedFood.price + selectedAddOnTotal}
+
+              </button>
+
+            </div>
+
+          </div>
+
+        </div>
+
+      )}
+
+      {/* =================================
+
+          SHOPPING CART
+
+      ================================= */}
+
+      {isCartOpen && (
+
+        <div
+
+          className="modal-backdrop"
+
+          onClick={() => setIsCartOpen(false)}
+
+        >
+
+          <section
+
+            className="cart-modal"
+
+            role="dialog"
+
+            aria-modal="true"
+
+            aria-labelledby="cart-title"
+
+            onClick={(e) => e.stopPropagation()}
+
+          >
+
+            {/* CART HEADER */}
+
+            <div className="cart-header">
+
+              <div>
+
+                <span className="eyebrow">
+
+                  YOUR SELECTION
+
+                </span>
+
+                <h2 id="cart-title">My Order</h2>
+
+              </div>
+
+              <button
+
+                className="modal-close"
+
+                onClick={() => setIsCartOpen(false)}
+
+                aria-label="Close cart"
+
+              >
+
+                ×
+
+              </button>
+
+            </div>
+
+            {/* ORDER SUCCESS / EMPTY CART / CART ITEMS */}
+
+{trackingOrderNumber && cartItems.length === 0 ? (
+
+  <OrderTracking
+    orderNumber={trackingOrderNumber}
+
+    onContinueBrowsing={() => {
+      setIsCartOpen(false);
+    }}
+
+    onDone={() => {
+
+      try {
+        window.sessionStorage.removeItem(trackingStorageKey);
+      } catch {
+        // Ignore storage errors.
+      }
+
+      setTrackingOrderNumber(null);
+      setIsCartOpen(false);
+
+    }}
+  />
+
+) : cartItems.length === 0 ? (
+
+              <div className="empty-cart">
+
+                <span>🛒</span>
+
+                <h3>Your cart is empty</h3>
+
+                <p>
+
+                  Discover something delicious from our menu.
+
+                </p>
+
+                <button
+
+                  className="modal-add-button"
+
+                  onClick={() => {
+
+                    setIsCartOpen(false);
+
+                    scrollToMenu();
+
+                  }}
+
+                >
+
+                  Explore Menu
+
+                </button>
+
+              </div>
+
+            ) : (
+
+              <>
+
+                {/* CART ITEMS */}
+
+                <div className="cart-items">
+
+                  {cartItems.map((item) => {
+
+                    const itemKey = getCartItemKey(item);
+
+                    const addonTotal = getAddOnTotal(
+
+                      item.selectedAddons
+
+                    );
+
+                    const unitPrice =
+
+                      item.food.price + addonTotal;
+
+                    return (
+
+                      <div
+
+                        className="cart-item"
+
+                        key={itemKey}
+
+                      >
+
+                        <img
+
+                          src={item.food.image}
+
+                          alt={item.food.name}
+
+                        />
+
+                        <div className="cart-item-info">
+
+                          <h3>{item.food.name}</h3>
+
+                          <strong>
+
+                            ৳{unitPrice * item.quantity}
+
+                          </strong>
+
+                          <p className="cart-spice-label">
+
+                            Spice level: {item.spiceLevel}
+
+                          </p>
+
+                          {/* CHANGE SPICE */}
+
+                          <label className="cart-spice-control">
+
+                            <span>Change spice:</span>
+
+                            <select
+
+                              value={item.spiceLevel}
+
+                              onChange={(e) =>
+
+                                updateCartSpice(
+
+                                  itemKey,
+
+                                  e.target.value as SpiceLevel
+
+                                )
+
+                              }
+
+                            >
+
+                              {item.food.spiceOptions.map((level) => (
+
+                                <option key={level} value={level}>
+
+                                  {level}
+
+                                </option>
+
+                              ))}
+
+                            </select>
+
+                          </label>
+
+                          {/* SELECTED ADD-ONS */}
+
+                          {item.selectedAddons.length > 0 && (
+
+                            <div className="cart-addon-list">
+
+                              <span>Extras:</span>
+
+                              {item.selectedAddons.map((addon) => (
+
+                                <p key={addon.id}>
+
+                                  + {addon.name}
+
+                                  {addon.price > 0
+
+                                    ? ` (৳${addon.price})`
+
+                                    : " (Free)"}
+
+                                </p>
+
+                              ))}
+
+                            </div>
+
+                          )}
+
+                          <div className="quantity-controls">
+
+                            <button
+
+                              onClick={() =>
+
+                                updateCartQuantity(itemKey, -1)
+
+                              }
+
+                              aria-label={`Decrease ${item.food.name} quantity`}
+
+                            >
+
+                              −
+
+                            </button>
+
+                            <span>{item.quantity}</span>
+
+                            <button
+
+                              onClick={() =>
+
+                                updateCartQuantity(itemKey, 1)
+
+                              }
+
+                              aria-label={`Increase ${item.food.name} quantity`}
+
+                            >
+
+                              +
+
+                            </button>
+
+                          </div>
+
+                        </div>
+
+                        <button
+
+                          className="remove-item"
+
+                          onClick={() => removeFromCart(itemKey)}
+
+                          aria-label={`Remove ${item.food.name}`}
+
+                          title="Remove item"
+
+                        >
+
+                          ×
+
+                        </button>
+
+                      </div>
+
+                    );
+
+                  })}
+
+                </div>
+
+                {/* CUSTOMER NOTE */}
+
+                <div className="order-note-field">
+
+                  <label htmlFor="customer-order-note">
+                    Special instructions (optional)
+                  </label>
+
+                  <textarea
+                    id="customer-order-note"
+                    value={customerNote}
+                    onChange={(event) => setCustomerNote(event.target.value)}
+                    placeholder="Any instructions for the kitchen?"
+                    maxLength={500}
+                    rows={3}
+                  />
+
+                  <small>{customerNote.length}/500 characters</small>
+
+                </div>
+
+                {/* CART SUMMARY */}
+
+                <div className="cart-summary">
+
+                  <div>
+
+                    <span>Total items</span>
+
+                    <strong>{cartCount}</strong>
+
+                  </div>
+
+                  <div>
+
+                    <span>Subtotal</span>
+
+                    <strong>৳{subtotal}</strong>
+
+                  </div>
+
+                  <div>
+
+                    <span>Estimated preparation time</span>
+
+                    <strong>{estimatedPrepTime} min</strong>
+
+                  </div>
+
+                  <div className="cart-total">
+
+                    <span>Total</span>
+
+                    <strong>৳{subtotal}</strong>
+
+                  </div>
+
+                </div>
+
+                <p className="cart-note">
+
+                  Add-on prices are included in the subtotal.
+                  Preparation workload adds the preparation time of each
+                  ordered serving. Actual waiting time may differ.
+
+                </p>
+
+                {!tableToken && (
+                  <p className="order-submit-error" role="alert">
+                    Scan the QR code on your restaurant table before placing an order.
+                  </p>
+                )}
+
+                {orderError && (
+                  <p className="order-submit-error" role="alert">
+                    {orderError}
+                  </p>
+                )}
+
+                <button
+
+                  className="modal-add-button order-submit-button"
+
+                  onClick={submitOrder}
+
+                  disabled={isSubmittingOrder || !tableToken}
+
+                >
+
+                  {isSubmittingOrder
+                    ? "Submitting order..."
+                    : `Place order — ৳${subtotal}`}
+
+                </button>
+
+                <button
+
+                  className="order-continue-button"
+
+                  onClick={() => setIsCartOpen(false)}
+
+                  disabled={isSubmittingOrder}
+
+                >
+
+                  Continue browsing
+
+                </button>
+
+              </>
+
+            )}
+
+          </section>
+
+        </div>
+
+      )}
+
+      {/* FOOTER */}
+
+      <footer className="footer">
+
+        <a className="logo" href="#">
+
+          Khai<span>-</span>Dai
+
+          <span className="logo-dot">.</span>
+
+        </a>
+
+        <p>Made with ❤️ for food lovers.</p>
+
+        <small>
+
+          © 2026 Khai-Dai. All rights reserved.
+
+        </small>
+
+      </footer>
+
+    </div>
+
+  );
+
+}
+
+// ==========================================
+// MAIN APPLICATION ROUTING
+// ==========================================
+
+
+function App() {
+
+  // Restaurant manager dashboard
+  if (window.location.pathname === "/admin/orders") {
+    return <ManagerDashboard />;
+  }
+
+  // Administrator QR management page
+  if (window.location.pathname === "/admin/qr") {
+    return <AdminQrPage />;
+  }
+
+  // Customer restaurant application
+  return (
+    <>
+      <TableSessionBanner />
+      <CustomerApp />
+    </>
+  );
+}
+
+export default App;
+
+
+
+========== .\frontend\src\ManagerDashboard.tsx ==========
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type FormEvent,
+} from "react";
+
+import "./ManagerDashboard.css";
+
+type OrderStatus =
+  | "AWAITING_PAYMENT"
+  | "PENDING"
+  | "ACCEPTED"
+  | "REJECTED"
+  | "PREPARING"
+  | "READY"
+  | "SERVED"
+  | "CANCELLED";
+
+type ManagerOrder = {
+  id: number;
+  orderNumber: string;
+  tableNumber: number;
+  status: OrderStatus;
+  totalAmount: number;
+  totalPreparationWorkMinutes: number;
+  customerNote: string | null;
+  createdAt: string;
+  updatedAt: string;
+  items: {
+    foodId: number;
+    foodName: string;
+    quantity: number;
+    unitPrice: number;
+    lineTotal: number;
+    spiceLevel: string;
+    preparationTimeMinutes: number;
+    selectedAddons: {
+      name: string;
+      price: number;
+    }[];
+  }[];
+};
+
+type OrderFilter = "ALL" | OrderStatus;
+
+const API_BASE_URL =
+  `${window.location.protocol}//${window.location.hostname}:8090`;
+
+const POLLING_INTERVAL = 12000;
+
+async function getErrorMessage(response: Response): Promise<string> {
+  const body = await response.text();
+
+  if (!body) {
+    return `Server error: ${response.status}`;
+  }
+
+  try {
+    const data = JSON.parse(body);
+
+    return (
+      data.message ||
+      data.error ||
+      `Server error: ${response.status}`
+    );
+  } catch {
+    return body;
+  }
+}
+
+function formatMoney(amount: number): string {
+  return `৳${Number(amount).toFixed(2)}`;
+}
+
+function formatDate(date: string): string {
+  return new Date(date).toLocaleString("en-BD", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
+}
+
+function getNextAction(status: OrderStatus) {
+  switch (status) {
+    case "PENDING":
+      return {
+        label: "Accept order",
+        nextStatus: "ACCEPTED" as OrderStatus,
+      };
+
+    case "ACCEPTED":
+      return {
+        label: "Start preparing",
+        nextStatus: "PREPARING" as OrderStatus,
+      };
+
+    case "PREPARING":
+      return {
+        label: "Mark as ready",
+        nextStatus: "READY" as OrderStatus,
+      };
+
+    case "READY":
+      return {
+        label: "Mark as served",
+        nextStatus: "SERVED" as OrderStatus,
+      };
+
+    default:
+      return null;
+  }
+}
+
+export default function ManagerDashboard() {
+  const [adminKeyInput, setAdminKeyInput] = useState("");
+  const [adminKey, setAdminKey] = useState("");
+  const [authenticated, setAuthenticated] = useState(false);
+
+  const [orders, setOrders] = useState<ManagerOrder[]>([]);
+
+  const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const [updatingOrder, setUpdatingOrder] = useState("");
+
+  const [error, setError] = useState("");
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+
+  const [notificationsEnabled, setNotificationsEnabled] =
+  useState(false);
+
+const knownOrderIds = useRef<Set<number> | null>(null);
+
+  const [filter, setFilter] = useState<OrderFilter>("ALL");
+
+  // ==========================================
+  // LOAD ORDERS
+  // ==========================================
+
+  const fetchOrders = useCallback(async (key: string) => {
+    const response = await fetch(
+      `${API_BASE_URL}/api/admin/orders`,
+      {
+        method: "GET",
+        headers: {
+          "X-Admin-Key": key,
+        },
+        cache: "no-store",
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(await getErrorMessage(response));
+    }
+
+    const data: ManagerOrder[] = await response.json();
+
+if (!Array.isArray(data)) {
+  throw new Error("Invalid order data received from server.");
+}
+
+// First load: remember existing orders without alerting.
+if (knownOrderIds.current === null) {
+
+  knownOrderIds.current = new Set(
+    data.map((order) => order.id)
+  );
+
+} else {
+
+  // Find newly arrived pending orders.
+  const newOrders = data.filter(
+    (order) =>
+      order.status === "PENDING" &&
+      !knownOrderIds.current!.has(order.id)
+  );
+
+  // Remember all orders to prevent duplicate notifications.
+  data.forEach((order) => {
+    knownOrderIds.current!.add(order.id);
+  });
+
+  // Notify manager about new orders.
+  if (
+    notificationsEnabled &&
+    "Notification" in window &&
+    Notification.permission === "granted"
+  ) {
+
+    newOrders.forEach((order) => {
+
+      new Notification("New Khai-Dai Order!", {
+        body:
+          `Table ${order.tableNumber} | ` +
+          `${order.orderNumber} | ` +
+          `${formatMoney(order.totalAmount)}`,
+        tag: `khaidai-order-${order.id}`,
+      });
+
+    });
+
+  }
+}
+
+setOrders(data);
+    setLastUpdated(new Date());
+    setError("");
+  }, [notificationsEnabled]);
+
+  // ==========================================
+  // ADMIN LOGIN
+  // ==========================================
+
+  const handleLogin = async (
+    event: FormEvent<HTMLFormElement>
+  ) => {
+    event.preventDefault();
+
+    const key = adminKeyInput.trim();
+
+    if (!key) {
+      setError("Please enter your administrator key.");
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+
+    try {
+      await fetchOrders(key);
+
+      setAdminKey(key);
+      setAuthenticated(true);
+      setAdminKeyInput("");
+
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Unable to access manager dashboard."
+      );
+
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ==========================================
+// ENABLE BROWSER NOTIFICATIONS
+// ==========================================
+
+const enableNotifications = async () => {
+
+  if (!("Notification" in window)) {
+    setError(
+      "Your browser does not support notifications."
+    );
+    return;
+  }
+
+  if (Notification.permission === "denied") {
+    setError(
+      "Notifications are blocked. Allow them in your browser site settings."
+    );
+    return;
+  }
+
+  try {
+
+    const permission = await Notification.requestPermission();
+
+    if (permission === "granted") {
+
+      setNotificationsEnabled(true);
+      setError("");
+
+    } else {
+
+      setError(
+        "Please allow browser notifications to receive new-order alerts."
+      );
+
+    }
+
+  } catch {
+
+    setError("Unable to enable browser notifications.");
+
+  }
+};
+
+  // ==========================================
+  // AUTOMATIC ORDER REFRESH
+  // ==========================================
+
+  useEffect(() => {
+    if (!authenticated || !adminKey) {
+      return;
+    }
+
+    const interval = window.setInterval(() => {
+      fetchOrders(adminKey).catch((err: unknown) => {
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Unable to refresh orders."
+        );
+      });
+    }, POLLING_INTERVAL);
+
+    return () => window.clearInterval(interval);
+
+  }, [authenticated, adminKey, fetchOrders]);
+
+  // ==========================================
+  // MANUAL REFRESH
+  // ==========================================
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+
+    try {
+      await fetchOrders(adminKey);
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Unable to refresh orders."
+      );
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  // ==========================================
+  // UPDATE ORDER STATUS
+  // ==========================================
+
+  const updateStatus = async (
+    orderNumber: string,
+    status: OrderStatus
+  ) => {
+    setUpdatingOrder(orderNumber);
+    setError("");
+
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/admin/orders/${encodeURIComponent(orderNumber)}/status`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Admin-Key": adminKey,
+          },
+          body: JSON.stringify({
+            status,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(await getErrorMessage(response));
+      }
+
+      await fetchOrders(adminKey);
+
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Unable to update order."
+      );
+
+    } finally {
+      setUpdatingOrder("");
+    }
+  };
+
+  // ==========================================
+  // REJECT ORDER
+  // ==========================================
+
+  const rejectOrder = async (orderNumber: string) => {
+    const confirmed = window.confirm(
+      "Are you sure you want to reject this order?"
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    await updateStatus(orderNumber, "REJECTED");
+  };
+
+  // ==========================================
+  // LOGOUT
+  // ==========================================
+
+  const logout = () => {
+    setAdminKey("");
+    setAdminKeyInput("");
+    setAuthenticated(false);
+    setOrders([]);
+    setFilter("ALL");
+    setError("");
+    setLastUpdated(null);
+  };
+
+  // ==========================================
+  // DASHBOARD STATISTICS
+  // ==========================================
+
+  const pendingCount = orders.filter(
+    (order) => order.status === "PENDING"
+  ).length;
+
+  const preparingCount = orders.filter(
+    (order) => order.status === "PREPARING"
+  ).length;
+
+  const readyCount = orders.filter(
+    (order) => order.status === "READY"
+  ).length;
+
+  const totalRevenue = orders
+    .filter((order) =>
+      ["ACCEPTED", "PREPARING", "READY", "SERVED"].includes(
+        order.status
+      )
+    )
+    .reduce(
+      (total, order) => total + Number(order.totalAmount),
+      0
+    );
+
+  // ==========================================
+  // FILTER ORDERS
+  // ==========================================
+
+  const filteredOrders = useMemo(() => {
+    if (filter === "ALL") {
+      return orders;
+    }
+
+    return orders.filter(
+      (order) => order.status === filter
+    );
+  }, [orders, filter]);
+
+  // ==========================================
+  // LOGIN SCREEN
+  // ==========================================
+
+  if (!authenticated) {
+    return (
+      <main className="manager-login-page">
+
+        <section className="manager-login-card">
+
+          <div className="manager-brand">
+            KHAI<span>-</span>DAI
+          </div>
+
+          <span className="manager-eyebrow">
+            RESTAURANT MANAGEMENT
+          </span>
+
+          <h1>Manager Login</h1>
+
+          <p>
+            Sign in to manage incoming restaurant orders.
+          </p>
+
+          <form onSubmit={handleLogin}>
+
+            <label htmlFor="manager-key">
+              Administrator key
+            </label>
+
+            <input
+              id="manager-key"
+              type="password"
+              value={adminKeyInput}
+              onChange={(event) =>
+                setAdminKeyInput(event.target.value)
+              }
+              placeholder="Enter your admin key"
+              autoComplete="off"
+              required
+            />
+
+            {error && (
+              <div className="manager-error">
+                {error}
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="manager-primary-button"
+            >
+              {loading ? "Signing in..." : "Open Dashboard"}
+            </button>
+
+          </form>
+
+          <a href="/" className="manager-back-link">
+            Back to restaurant
+          </a>
+
+        </section>
+
+      </main>
+    );
+  }
+
+  // ==========================================
+  // MAIN DASHBOARD
+  // ==========================================
+
+  return (
+    <main className="manager-page">
+
+      <header className="manager-header">
+
+        <div>
+          <div className="manager-brand">
+            KHAI<span>-</span>DAI
+          </div>
+
+          <span className="manager-eyebrow">
+            RESTAURANT MANAGEMENT
+          </span>
+
+          <h1>Order Dashboard</h1>
+
+          <p>
+            Manage customer orders and kitchen preparation.
+          </p>
+        </div>
+
+        <div className="manager-header-actions">
+
+          <button
+  onClick={enableNotifications}
+  disabled={notificationsEnabled}
+  className="manager-refresh-button"
+>
+  {notificationsEnabled
+    ? "✓ Alerts enabled"
+    : "🔔 Enable alerts"}
+</button>
+
+          <button
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className="manager-refresh-button"
+          >
+            {refreshing ? "Refreshing..." : "↻ Refresh"}
+          </button>
+
+          <a href="/admin/qr" className="manager-link-button">
+            QR Management
+          </a>
+
+          <button
+            onClick={logout}
+            className="manager-logout-button"
+          >
+            Logout
+          </button>
+
+        </div>
+
+      </header>
+
+      {error && (
+        <div className="manager-error manager-dashboard-error">
+          {error}
+        </div>
+      )}
+
+      {/* STATISTICS */}
+
+      <section className="manager-stats">
+
+        <article className="manager-stat-card">
+          <span>Total orders</span>
+          <strong>{orders.length}</strong>
+        </article>
+
+        <article className="manager-stat-card pending-stat">
+          <span>Pending orders</span>
+          <strong>{pendingCount}</strong>
+        </article>
+
+        <article className="manager-stat-card preparing-stat">
+          <span>Preparing</span>
+          <strong>{preparingCount}</strong>
+        </article>
+
+        <article className="manager-stat-card ready-stat">
+          <span>Ready to serve</span>
+          <strong>{readyCount}</strong>
+        </article>
+
+        <article className="manager-stat-card revenue-stat">
+          <span>Accepted order value</span>
+          <strong>{formatMoney(totalRevenue)}</strong>
+        </article>
+
+      </section>
+
+      {/* ORDER MANAGEMENT */}
+
+      <section className="manager-orders-section">
+
+        <div className="manager-orders-heading">
+
+          <div>
+            <span className="manager-eyebrow">
+              LIVE RESTAURANT ORDERS
+            </span>
+
+            <h2>Customer orders</h2>
+          </div>
+
+          <div className="manager-last-updated">
+            {lastUpdated
+              ? `Updated ${lastUpdated.toLocaleTimeString()}`
+              : "Waiting for orders"}
+          </div>
+
+        </div>
+
+        {/* FILTERS */}
+
+        <div className="manager-filters">
+
+          {(
+            [
+              "ALL",
+              "PENDING",
+              "ACCEPTED",
+              "PREPARING",
+              "READY",
+              "SERVED",
+              "REJECTED",
+            ] as OrderFilter[]
+          ).map((status) => (
+
+            <button
+              key={status}
+              className={
+                filter === status
+                  ? "manager-filter active"
+                  : "manager-filter"
+              }
+              onClick={() => setFilter(status)}
+            >
+              {status === "ALL"
+                ? "All orders"
+                : status.replace("_", " ")}
+            </button>
+
+          ))}
+
+        </div>
+
+        {/* ORDER CARDS */}
+
+        {filteredOrders.length === 0 ? (
+
+          <div className="manager-empty-state">
+            <span>🍽️</span>
+
+            <h3>No orders found</h3>
+
+            <p>
+              {filter === "ALL"
+                ? "New customer orders will appear here automatically."
+                : `There are currently no ${filter.toLowerCase()} orders.`}
+            </p>
+          </div>
+
+        ) : (
+
+          <div className="manager-order-list">
+
+            {filteredOrders.map((order) => {
+
+              const nextAction = getNextAction(order.status);
+
+              const isUpdating =
+                updatingOrder === order.orderNumber;
+
+              return (
+
+                <article
+                  className="manager-order-card"
+                  key={order.id}
+                >
+
+                  {/* ORDER HEADER */}
+
+                  <div className="manager-order-top">
+
+                    <div>
+                      <span className="manager-order-number">
+                        {order.orderNumber}
+                      </span>
+
+                      <h3>
+                        Table {order.tableNumber}
+                      </h3>
+
+                      <span className="manager-order-date">
+                        {formatDate(order.createdAt)}
+                      </span>
+                    </div>
+
+                    <span
+                      className={`manager-status status-${order.status.toLowerCase()}`}
+                    >
+                      {order.status.replace("_", " ")}
+                    </span>
+
+                  </div>
+
+                  {/* ORDER ITEMS */}
+
+                  <div className="manager-items">
+
+                    {order.items.map((item, index) => (
+
+                      <div
+                        className="manager-item"
+                        key={`${item.foodId}-${index}`}
+                      >
+
+                        <div className="manager-item-heading">
+
+                          <strong>
+                            {item.foodName}
+                          </strong>
+
+                          <span>
+                            × {item.quantity}
+                          </span>
+
+                        </div>
+
+                        <div className="manager-item-details">
+
+                          <span>
+                            Spice: {item.spiceLevel}
+                          </span>
+
+                          <span>
+                            Preparation: {item.preparationTimeMinutes} min
+                          </span>
+
+                        </div>
+
+                        {(item.selectedAddons ?? []).length > 0 && (
+
+                          <div className="manager-addons">
+
+                            <span>Add-ons:</span>
+
+                            {item.selectedAddons.map(
+                              (addon, addonIndex) => (
+
+                                <span key={addonIndex}>
+                                  {addon.name} (+{formatMoney(addon.price)})
+                                </span>
+
+                              )
+                            )}
+
+                          </div>
+
+                        )}
+
+                        <div className="manager-item-price">
+                          {formatMoney(item.lineTotal)}
+                        </div>
+
+                      </div>
+
+                    ))}
+
+                  </div>
+
+                  {/* CUSTOMER NOTE */}
+
+                  {order.customerNote && (
+
+                    <div className="manager-customer-note">
+                      <strong>Customer note:</strong>
+                      <p>{order.customerNote}</p>
+                    </div>
+
+                  )}
+
+                  {/* ORDER TOTAL */}
+
+                  <div className="manager-order-summary">
+
+                    <div>
+                      <span>Estimated preparation time</span>
+                      <strong>
+                        {order.totalPreparationWorkMinutes} min
+                      </strong>
+                    </div>
+
+                    <div>
+                      <span>Order total</span>
+                      <strong>
+                        {formatMoney(order.totalAmount)}
+                      </strong>
+                    </div>
+
+                  </div>
+
+                  {/* ORDER ACTIONS */}
+
+                  {nextAction && (
+
+                    <div className="manager-order-actions">
+
+                      {order.status === "PENDING" && (
+
+                        <button
+                          className="manager-reject-button"
+                          disabled={isUpdating}
+                          onClick={() =>
+                            rejectOrder(order.orderNumber)
+                          }
+                        >
+                          Reject
+                        </button>
+
+                      )}
+
+                      <button
+                        className="manager-primary-button"
+                        disabled={isUpdating}
+                        onClick={() =>
+                          updateStatus(
+                            order.orderNumber,
+                            nextAction.nextStatus
+                          )
+                        }
+                      >
+                        {isUpdating
+                          ? "Updating..."
+                          : nextAction.label}
+                      </button>
+
+                    </div>
+
+                  )}
+
+                </article>
+
+              );
+
+            })}
+
+          </div>
+
+        )}
+
+      </section>
+
+      <footer className="manager-footer">
+        Khai-Dai Restaurant Management System · Manager Dashboard
+      </footer>
+
+    </main>
+  );
+}
+
+
+========== GIT STATUS ==========
+ M backend/src/main/java/com/khaidai/backend/dto/CreateOrderRequest.java
+ M backend/src/main/java/com/khaidai/backend/entity/OrderStatus.java
+ M backend/src/main/java/com/khaidai/backend/entity/Payment.java
+ M backend/src/main/java/com/khaidai/backend/service/OrderService.java
+ M backend/src/main/resources/application.properties
+ M frontend/src/ManagerDashboard.tsx
+?? backend/src/main/java/com/khaidai/backend/controller/PaymentController.java
+?? backend/src/main/java/com/khaidai/backend/dto/PaymentInitiateRequest.java
+?? backend/src/main/java/com/khaidai/backend/dto/PaymentInitiateResponse.java
+?? backend/src/main/java/com/khaidai/backend/service/PaymentService.java
+?? payment-implementation-context.txt

@@ -6,6 +6,7 @@ import com.khaidai.backend.dto.OrderResponse;
 import com.khaidai.backend.entity.OrderItem;
 import com.khaidai.backend.entity.OrderItemAddon;
 import com.khaidai.backend.entity.OrderStatus;
+import com.khaidai.backend.entity.PaymentMethod;
 import com.khaidai.backend.entity.RestaurantOrder;
 import com.khaidai.backend.entity.RestaurantTable;
 
@@ -213,9 +214,16 @@ public class OrderService {
                 totalPreparationWork
         );
 
-        // Every new customer order starts as PENDING
+        // Preserve existing behavior when paymentMethod is omitted.
+        PaymentMethod paymentMethod = request.paymentMethod() == null
+                ? PaymentMethod.CASH
+                : request.paymentMethod();
 
-        order.setStatus(OrderStatus.PENDING);
+        order.setStatus(
+                paymentMethod == PaymentMethod.SSLCOMMERZ
+                        ? OrderStatus.AWAITING_PAYMENT
+                        : OrderStatus.PENDING
+        );
 
         RestaurantOrder savedOrder = orderRepository.save(order);
 

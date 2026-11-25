@@ -2051,3 +2051,117 @@ img {
   }
 }
 
+
+/* ==========================================
+   PAYMENT METHOD AND ONLINE CHECKOUT
+========================================== */
+
+.payment-method-field {
+  margin-top: 24px;
+}
+
+.payment-method-field h3 {
+  color: #193b2d;
+  font-size: 17px;
+  margin-bottom: 14px;
+}
+
+.payment-method-options {
+  display: grid;
+  gap: 12px;
+}
+
+.payment-option {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid #e1e5df;
+  border-radius: 10px;
+  cursor: pointer;
+  background: #fff;
+}
+
+.payment-option:has(input:checked) {
+  border-color: #28734d;
+  background: #f3f8f4;
+}
+
+.payment-option input {
+  width: 18px;
+  height: 18px;
+  accent-color: #28734d;
+}
+
+.payment-option span {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.payment-option strong {
+  color: #193b2d;
+  font-size: 14px;
+}
+
+.payment-option small {
+  color: #778178;
+  font-size: 12px;
+}
+
+.payment-customer-details {
+  margin-top: 22px;
+  display: grid;
+  gap: 14px;
+}
+
+.payment-customer-details label {
+  display: grid;
+  gap: 7px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #193b2d;
+}
+
+.payment-customer-details input {
+  width: 100%;
+  padding: 13px;
+  border: 1px solid #dfe4dc;
+  border-radius: 8px;
+  font-size: 14px;
+  background: #fff;
+  color: #222;
+}
+
+.payment-customer-details input:focus {
+  outline: none;
+  border-color: #28734d;
+  box-shadow: 0 0 0 3px rgba(40, 115, 77, 0.1);
+}
+
+.sslcommerz-info {
+  padding: 15px;
+  background: #f3f8f4;
+  border: 1px solid #dceade;
+  border-radius: 9px;
+}
+
+.sslcommerz-info strong {
+  color: #28734d;
+}
+
+.sslcommerz-info p {
+  color: #66756b;
+  font-size: 13px;
+  margin: 7px 0 0;
+  line-height: 1.6;
+}
+
+.payment-pending-info {
+  padding: 12px;
+  background: #fff8e8;
+  border-radius: 8px;
+  color: #805b15;
+  font-size: 13px;
+}
+

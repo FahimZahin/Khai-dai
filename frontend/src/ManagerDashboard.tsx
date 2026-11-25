@@ -10,6 +10,7 @@ import {
 import "./ManagerDashboard.css";
 
 type OrderStatus =
+  | "AWAITING_PAYMENT"
   | "PENDING"
   | "ACCEPTED"
   | "REJECTED"

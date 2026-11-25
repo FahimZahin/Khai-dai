@@ -513,8 +513,33 @@ function CustomerApp() {
   const [customerNote, setCustomerNote] = useState("");
   const [isSubmittingOrder, setIsSubmittingOrder] = useState(false);
   const [orderError, setOrderError] = useState("");
+
+type CheckoutPaymentMethod = "CASH" | "SSLCOMMERZ";
+
+const [paymentMethod, setPaymentMethod] =
+  useState<CheckoutPaymentMethod>("CASH");
+
+const [customerName, setCustomerName] = useState("");
+const [customerEmail, setCustomerEmail] = useState("");
+const [customerPhone, setCustomerPhone] = useState("");
+const [customerAddress, setCustomerAddress] = useState("");
+const [customerCity, setCustomerCity] = useState("");
+const [customerPostcode, setCustomerPostcode] = useState("");
+
+const [pendingPaymentOrderNumber, setPendingPaymentOrderNumber] =
+  useState<string | null>(null);
+
+
 const [trackingOrderNumber, setTrackingOrderNumber] =
   useState<string | null>(() => {
+    const returnedOrderNumber =
+      new URLSearchParams(window.location.search)
+        .get("orderNumber");
+
+    if (returnedOrderNumber) {
+      return returnedOrderNumber;
+    }
+
     if (!trackingStorageKey) return null;
 
     try {
@@ -523,6 +548,7 @@ const [trackingOrderNumber, setTrackingOrderNumber] =
       return null;
     }
   });
+
 
   // ==========================================
 
@@ -810,106 +836,221 @@ const estimatedPrepTime = cartItems.reduce(
 
   // ==========================================
 
-  const submitOrder = async () => {
+ 
+const submitOrder = async () => {
+  if (!tableToken) {
+    setOrderError(
+      "Please scan the QR code on your restaurant table."
+    );
+    return;
+  }
 
-    if (!tableToken) {
-      setOrderError(
-        "This menu is not linked to a table. Please scan the QR code on your table."
+  if (!pendingPaymentOrderNumber && cartItems.length === 0) {
+    setOrderError("Your cart is empty.");
+    return;
+  }
+
+  if (paymentMethod === "SSLCOMMERZ") {
+    if (
+      !customerName.trim() ||
+      !customerEmail.trim() ||
+      !customerPhone.trim() ||
+      !customerAddress.trim() ||
+      !customerCity.trim()
+    ) {
+      setOrderError("Please complete all required customer information.");
+      return;
+    }
+
+    if (
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerEmail.trim())
+    ) {
+      setOrderError("Please enter a valid email address.");
+      return;
+    }
+
+    if (customerPhone.trim().length < 6 ||
+        customerPhone.trim().length > 20) {
+      setOrderError("Please enter a valid phone number.");
+      return;
+    }
+  }
+
+  setIsSubmittingOrder(true);
+  setOrderError("");
+
+  try {
+    let orderNumber = pendingPaymentOrderNumber;
+
+    // CREATE ORDER ONLY ONCE
+    if (!orderNumber) {
+      const payload = {
+        tableToken,
+        customerNote: customerNote.trim() || null,
+        paymentMethod,
+
+        items: cartItems.map((item) => ({
+          foodId: item.food.id,
+          quantity: item.quantity,
+          spiceLevel: item.spiceLevel,
+
+          selectedAddons: item.selectedAddons.map((addon) => ({
+            id: addon.id,
+          })),
+        })),
+      };
+
+      const orderResponse = await fetch(
+        `${API_BASE_URL}/api/orders`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+          },
+          body: JSON.stringify(payload),
+        }
       );
+
+      const orderText = await orderResponse.text();
+      let orderData: any = null;
+
+      try {
+        orderData = orderText ? JSON.parse(orderText) : null;
+      } catch {
+        orderData = null;
+      }
+
+      if (!orderResponse.ok) {
+        throw new Error(
+          orderData?.detail ||
+          orderData?.message ||
+          orderData?.error ||
+          `Order failed: ${orderResponse.status}`
+        );
+      }
+
+const createdOrder = orderData as CreatedOrder;
+
+if (
+  typeof createdOrder?.orderNumber !== "string" ||
+  !createdOrder.orderNumber.trim()
+) {
+  throw new Error("No valid order number received.");
+}
+
+const confirmedOrderNumber = createdOrder.orderNumber.trim();
+orderNumber = confirmedOrderNumber;
+
+      if (paymentMethod === "SSLCOMMERZ") {
+        setPendingPaymentOrderNumber(orderNumber);
+      }
+    }
+
+    // CASH PAYMENT: PRESERVE EXISTING FLOW
+    if (paymentMethod === "CASH") {
+      setTrackingOrderNumber(orderNumber);
+
+      try {
+        if (trackingStorageKey) {
+          window.sessionStorage.setItem(
+            trackingStorageKey,
+            orderNumber
+          );
+        }
+      } catch {
+        // Tracking remains available in React state.
+      }
+
+      setCartItems([]);
+      setCustomerNote("");
+      setOrderError("");
       return;
     }
 
-    if (cartItems.length === 0) {
-      setOrderError("Your cart is empty.");
-      return;
-    }
-
-    setIsSubmittingOrder(true);
-    setOrderError("");
-
-    try {
-
-const payload = {
-  tableToken,
-  customerNote: customerNote.trim() || null,
-
-  items: cartItems.map((item) => ({
-    foodId: item.food.id,
-
-    quantity: item.quantity,
-
-    spiceLevel: item.spiceLevel,
-
-    selectedAddons: item.selectedAddons.map((addon) => ({
-      id: addon.id,
-    })),
-  })),
-};
-
-      const response = await fetch(`${API_BASE_URL}/api/orders`, {
+    // ONLINE PAYMENT: INITIATE SSLCOMMERZ
+    const paymentResponse = await fetch(
+      `${API_BASE_URL}/api/payments/initiate`,
+      {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           "Accept": "application/json",
         },
-        body: JSON.stringify(payload),
-      });
-
-      const responseText = await response.text();
-
-      let responseData: any = null;
-
-      try {
-        responseData = responseText ? JSON.parse(responseText) : null;
-      } catch {
-        responseData = null;
+        body: JSON.stringify({
+          orderNumber,
+          customerName: customerName.trim(),
+          customerEmail: customerEmail.trim(),
+          customerPhone: customerPhone.trim(),
+          customerAddress: customerAddress.trim(),
+          customerCity: customerCity.trim(),
+          customerPostcode: customerPostcode.trim() || null,
+        }),
       }
+    );
 
-      if (!response.ok) {
-        throw new Error(
-          responseData?.detail ||
-          responseData?.message ||
-          responseData?.error ||
-          `Unable to submit order. Server returned ${response.status}.`
-        );
-      }
+    const paymentText = await paymentResponse.text();
+    let paymentData: any = null;
 
-      if (!responseData?.orderNumber) {
-        throw new Error(
-          "The server received a response, but no order number was returned."
-        );
-      }
-
-      const createdOrder = responseData as CreatedOrder;
-
-setTrackingOrderNumber(createdOrder.orderNumber);
-
-try {
-  window.sessionStorage.setItem(
-    trackingStorageKey,
-    createdOrder.orderNumber
-  );
-} catch {
-  // Tracking remains available until this page is closed.
-}
-      setCartItems([]);
-      setCustomerNote("");
-      setOrderError("");
-
-    } catch (error) {
-
-      setOrderError(
-        error instanceof Error
-          ? error.message
-          : "Something went wrong while submitting your order."
-      );
-
-    } finally {
-
-      setIsSubmittingOrder(false);
-
+    try {
+      paymentData = paymentText ? JSON.parse(paymentText) : null;
+    } catch {
+      paymentData = null;
     }
-  };
+
+    if (!paymentResponse.ok) {
+      throw new Error(
+        paymentData?.detail ||
+        paymentData?.message ||
+        paymentData?.error ||
+        `Payment initiation failed: ${paymentResponse.status}`
+      );
+    }
+
+    if (!paymentData?.gatewayPageUrl) {
+      throw new Error("SSLCommerz did not return a gateway URL.");
+    }
+
+    const gatewayUrl = new URL(paymentData.gatewayPageUrl);
+
+    if (gatewayUrl.protocol !== "https:") {
+      throw new Error("Invalid secure payment gateway URL.");
+    }
+
+    // SAVE ORDER NUMBER BEFORE REDIRECT
+    setTrackingOrderNumber(orderNumber);
+
+    try {
+      if (trackingStorageKey) {
+        window.sessionStorage.setItem(
+          trackingStorageKey,
+          orderNumber
+        );
+      }
+    } catch {
+      // Continue with the gateway redirect.
+    }
+
+    setPendingPaymentOrderNumber(null);
+    setCartItems([]);
+    setCustomerNote("");
+    setIsCartOpen(false);
+
+    // REDIRECT TO SSLCOMMERZ
+    window.location.assign(gatewayUrl.toString());
+
+  } catch (error) {
+    setOrderError(
+      error instanceof Error
+        ? error.message
+        : "Something went wrong during checkout."
+    );
+  } finally {
+    setIsSubmittingOrder(false);
+  }
+};
+
+
 
   // ==========================================
 
@@ -1992,6 +2133,148 @@ try {
 
                 </div>
 
+
+{/* PAYMENT METHOD */}
+
+<div className="payment-method-field">
+
+  <h3>Choose payment method</h3>
+
+  <div className="payment-method-options">
+
+    <label className="payment-option">
+      <input
+        type="radio"
+        name="paymentMethod"
+        value="CASH"
+        checked={paymentMethod === "CASH"}
+        disabled={!!pendingPaymentOrderNumber}
+        onChange={() => setPaymentMethod("CASH")}
+      />
+
+      <span>
+        <strong>Cash at table</strong>
+        <small>Pay directly at the restaurant.</small>
+      </span>
+    </label>
+
+    <label className="payment-option">
+      <input
+        type="radio"
+        name="paymentMethod"
+        value="SSLCOMMERZ"
+        checked={paymentMethod === "SSLCOMMERZ"}
+        disabled={!!pendingPaymentOrderNumber}
+        onChange={() => setPaymentMethod("SSLCOMMERZ")}
+      />
+
+      <span>
+        <strong>Online payment</strong>
+        <small>Secure payment through SSLCommerz.</small>
+      </span>
+    </label>
+
+  </div>
+
+  {paymentMethod === "SSLCOMMERZ" && (
+
+    <div className="payment-customer-details">
+
+      <h3>Customer information</h3>
+
+      <label>
+        Full name *
+        <input
+          type="text"
+          value={customerName}
+          onChange={(e) => setCustomerName(e.target.value)}
+          maxLength={100}
+          placeholder="Your full name"
+          autoComplete="name"
+        />
+      </label>
+
+      <label>
+        Email address *
+        <input
+          type="email"
+          value={customerEmail}
+          onChange={(e) => setCustomerEmail(e.target.value)}
+          maxLength={100}
+          placeholder="example@email.com"
+          autoComplete="email"
+        />
+      </label>
+
+      <label>
+        Phone number *
+        <input
+          type="tel"
+          value={customerPhone}
+          onChange={(e) => setCustomerPhone(e.target.value)}
+          maxLength={20}
+          placeholder="01XXXXXXXXX"
+          autoComplete="tel"
+        />
+      </label>
+
+      <label>
+        Address *
+        <input
+          type="text"
+          value={customerAddress}
+          onChange={(e) => setCustomerAddress(e.target.value)}
+          maxLength={200}
+          placeholder="Your address"
+          autoComplete="street-address"
+        />
+      </label>
+
+      <label>
+        City *
+        <input
+          type="text"
+          value={customerCity}
+          onChange={(e) => setCustomerCity(e.target.value)}
+          maxLength={80}
+          placeholder="Dhaka"
+          autoComplete="address-level2"
+        />
+      </label>
+
+      <label>
+        Postcode
+        <input
+          type="text"
+          value={customerPostcode}
+          onChange={(e) => setCustomerPostcode(e.target.value)}
+          maxLength={20}
+          placeholder="Optional"
+          autoComplete="postal-code"
+        />
+      </label>
+
+      <div className="sslcommerz-info">
+        <strong>Secure checkout</strong>
+        <p>
+          You will be redirected to SSLCommerz to complete
+          your payment securely.
+        </p>
+      </div>
+
+    </div>
+  )}
+
+  {pendingPaymentOrderNumber && (
+    <p className="payment-pending-info">
+      Your order has already been created.
+      Retry payment to continue with the same order.
+    </p>
+  )}
+
+</div>
+
+
                 {/* CART SUMMARY */}
 
                 <div className="cart-summary">
@@ -2060,9 +2343,13 @@ try {
 
                 >
 
-                  {isSubmittingOrder
-                    ? "Submitting order..."
-                    : `Place order — ৳${subtotal}`}
+{isSubmittingOrder
+  ? "Processing..."
+  : paymentMethod === "SSLCOMMERZ"
+    ? pendingPaymentOrderNumber
+      ? "Retry online payment"
+      : `Continue to payment — ৳${subtotal}`
+    : `Place cash order — ৳${subtotal}`}
 
                 </button>
 

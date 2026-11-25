@@ -1,4 +1,3 @@
-
 package com.khaidai.backend.entity;
 
 import jakarta.persistence.*;
@@ -10,14 +9,8 @@ import java.time.Instant;
 @Table(
     name = "payments",
     indexes = {
-        @Index(
-            name = "idx_payment_order",
-            columnList = "order_id"
-        ),
-        @Index(
-            name = "idx_payment_status",
-            columnList = "status"
-        )
+        @Index(name = "idx_payment_order", columnList = "order_id"),
+        @Index(name = "idx_payment_status", columnList = "status")
     }
 )
 public class Payment {
@@ -30,12 +23,7 @@ public class Payment {
     @JoinColumn(name = "order_id", nullable = false)
     private RestaurantOrder order;
 
-    @Column(
-        name = "transaction_id",
-        nullable = false,
-        unique = true,
-        length = 100
-    )
+    @Column(name = "transaction_id", nullable = false, unique = true, length = 100)
     private String transactionId;
 
     @Enumerated(EnumType.STRING)
@@ -57,6 +45,12 @@ public class Payment {
 
     @Column(name = "bank_transaction_id", length = 150)
     private String bankTransactionId;
+
+    @Column(name = "gateway_session_key", length = 100)
+    private String gatewaySessionKey;
+
+    @Column(name = "gateway_page_url", length = 500)
+    private String gatewayPageUrl;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
@@ -152,6 +146,22 @@ public class Payment {
 
     public void setBankTransactionId(String bankTransactionId) {
         this.bankTransactionId = bankTransactionId;
+    }
+
+    public String getGatewaySessionKey() {
+        return gatewaySessionKey;
+    }
+
+    public void setGatewaySessionKey(String gatewaySessionKey) {
+        this.gatewaySessionKey = gatewaySessionKey;
+    }
+
+    public String getGatewayPageUrl() {
+        return gatewayPageUrl;
+    }
+
+    public void setGatewayPageUrl(String gatewayPageUrl) {
+        this.gatewayPageUrl = gatewayPageUrl;
     }
 
     public Instant getCreatedAt() {
