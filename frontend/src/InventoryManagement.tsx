@@ -1,6 +1,7 @@
 import {
   useCallback,
   useEffect,
+  useRef,
   useState,
   type FormEvent,
 } from "react";
@@ -47,6 +48,7 @@ type MovementAction = {
 
 type Props = {
   adminKey: string;
+  notificationsEnabled?: boolean;
 };
 
 function formatQuantity(value: number | string): string {
@@ -83,7 +85,10 @@ async function getErrorMessage(response: Response): Promise<string> {
   }
 }
 
-export default function InventoryManagement({ adminKey }: Props) {
+export default function InventoryManagement({
+  adminKey,
+  notificationsEnabled = false,
+}: Props) {
 
   const [inventory, setInventory] =
     useState<InventoryData | null>(null);
@@ -105,6 +110,8 @@ export default function InventoryManagement({ adminKey }: Props) {
 
   const [reorderDrafts, setReorderDrafts] =
     useState<Record<number, string>>({});
+
+  const knownAlertIds = useRef<Set<number> | null>(null);
 
   const loadInventory = useCallback(async () => {
 
@@ -130,6 +137,62 @@ export default function InventoryManagement({ adminKey }: Props) {
 
       const data: InventoryData = await response.json();
 
+      const currentAlerts = data.ingredients.filter(
+        (ingredient) =>
+          ingredient.active &&
+          (
+            ingredient.lowStock ||
+            Number(ingredient.currentStock) <= 0
+          )
+      );
+
+      const currentAlertIds = new Set(
+        currentAlerts.map((ingredient) => ingredient.id)
+      );
+
+      const previousIds = knownAlertIds.current;
+
+      if (previousIds === null) {
+
+        knownAlertIds.current = currentAlertIds;
+
+      } else {
+
+        const newlyAlerted = currentAlerts.filter(
+          (ingredient) => !previousIds.has(ingredient.id)
+        );
+
+        if (
+          notificationsEnabled &&
+          "Notification" in window &&
+          Notification.permission === "granted"
+        ) {
+
+          newlyAlerted.forEach((ingredient) => {
+
+            const outOfStock =
+              Number(ingredient.currentStock) <= 0;
+
+            new Notification(
+              outOfStock
+                ? "Khai-Dai: Out of Stock!"
+                : "Khai-Dai: Low Stock Alert!",
+              {
+                body:
+                  `${ingredient.name}: ` +
+                  `${ingredient.currentStock} ${ingredient.unit} remaining. ` +
+                  `Reorder level: ${ingredient.reorderLevel} ${ingredient.unit}.`,
+                tag: `khaidai-inventory-${ingredient.id}`,
+              }
+            );
+
+          });
+
+        }
+
+        knownAlertIds.current = currentAlertIds;
+      }
+
       setInventory(data);
 
     } catch (err) {
@@ -145,10 +208,18 @@ export default function InventoryManagement({ adminKey }: Props) {
       setLoading(false);
     }
 
-  }, [adminKey]);
+  }, [adminKey, notificationsEnabled]);
 
   useEffect(() => {
     void loadInventory();
+  }, [loadInventory]);
+
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      void loadInventory();
+    }, 15000);
+
+    return () => window.clearInterval(interval);
   }, [loadInventory]);
 
   const ingredients = inventory?.ingredients ?? [];
@@ -164,6 +235,17 @@ export default function InventoryManagement({ adminKey }: Props) {
   const outOfStockCount = activeIngredients.filter(
     (ingredient) => Number(ingredient.currentStock) <= 0
   ).length;
+
+  const stockAlerts = activeIngredients
+    .filter(
+      (ingredient) =>
+        ingredient.lowStock ||
+        Number(ingredient.currentStock) <= 0
+    )
+    .sort(
+      (a, b) =>
+        Number(a.currentStock) - Number(b.currentStock)
+    );
 
   // ==========================================
   // ADD INGREDIENT
@@ -457,6 +539,82 @@ export default function InventoryManagement({ adminKey }: Props) {
         </article>
 
       </section>
+
+      {/* LOW STOCK ALERTS */}
+
+      {stockAlerts.length > 0 && (
+        <section
+          className="inventory-panel inventory-alert-panel"
+          aria-live="polite"
+        >
+
+          <div className="inventory-panel-heading">
+            <div>
+              <span className="manager-eyebrow">
+                ATTENTION REQUIRED
+              </span>
+              <h3>Inventory alerts</h3>
+              <p>
+                These ingredients have reached their reorder level.
+              </p>
+            </div>
+
+            <span className="inventory-count">
+              {stockAlerts.length} alerts
+            </span>
+          </div>
+
+          <div className="inventory-alert-list">
+
+            {stockAlerts.map((ingredient) => {
+
+              const outOfStock =
+                Number(ingredient.currentStock) <= 0;
+
+              return (
+                <article
+                  key={ingredient.id}
+                  className={
+                    outOfStock
+                      ? "inventory-alert-item out"
+                      : "inventory-alert-item"
+                  }
+                >
+
+                  <div className="inventory-alert-copy">
+
+                    <strong>{ingredient.name}</strong>
+
+                    <small>
+                      {outOfStock ? "OUT OF STOCK" : "LOW STOCK"}
+                      {" · "}
+                      {formatQuantity(ingredient.currentStock)}
+                      {" "}{ingredient.unit} remaining
+                      {" · Reorder level: "}
+                      {formatQuantity(ingredient.reorderLevel)}
+                      {" "}{ingredient.unit}
+                    </small>
+
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      openMovement(ingredient, "STOCK_IN")
+                    }
+                    disabled={saving}
+                  >
+                    + Restock
+                  </button>
+
+                </article>
+              );
+            })}
+
+          </div>
+
+        </section>
+      )}
 
       {/* ADD INGREDIENT */}
 

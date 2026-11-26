@@ -350,3 +350,81 @@
     font-size: 25px;
   }
 }
+/* ==========================================
+   PHASE 2D - LIVE INVENTORY ALERTS
+========================================== */
+
+.inventory-alert-panel {
+  border-left: 4px solid #d59a52;
+}
+
+.inventory-alert-list {
+  display: grid;
+  gap: 10px;
+}
+
+.inventory-alert-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 14px;
+  padding: 14px;
+  border: 1px solid #f0dfc2;
+  border-radius: 10px;
+  background: #fffaf1;
+}
+
+.inventory-alert-item.out {
+  border-color: #efc8c2;
+  background: #fff7f6;
+}
+
+.inventory-alert-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.inventory-alert-copy strong {
+  color: #294637;
+  font-size: 14px;
+}
+
+.inventory-alert-copy small {
+  color: #8b7255;
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.inventory-alert-item.out .inventory-alert-copy small {
+  color: #a43c32;
+}
+
+.inventory-alert-item button {
+  flex-shrink: 0;
+  padding: 9px 13px;
+  border: none;
+  border-radius: 7px;
+  background: #294a39;
+  color: white;
+  font-size: 11px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.inventory-alert-item button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+@media (max-width: 520px) {
+  .inventory-alert-item {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .inventory-alert-item button {
+    width: 100%;
+  }
+}

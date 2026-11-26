@@ -686,7 +686,10 @@ const enableNotifications = async () => {
       {activeView === "ANALYTICS" ? (
         <SalesAnalytics adminKey={adminKey} />
       ) : activeView === "INVENTORY" ? (
-        <InventoryManagement adminKey={adminKey} />
+        <InventoryManagement
+          adminKey={adminKey}
+          notificationsEnabled={notificationsEnabled}
+        />
       ) : activeView === "RECIPES" ? (
         <RecipeManagement adminKey={adminKey} />
       ) : (
