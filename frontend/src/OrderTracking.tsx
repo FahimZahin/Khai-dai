@@ -28,6 +28,7 @@ type TrackedOrder = {
 
 type Props = {
   orderNumber: string;
+  paymentResult: string | null;
   onContinueBrowsing: () => void;
   onDone: () => void;
 };
@@ -81,6 +82,7 @@ const formatMoney = (amount: number | string) =>
 
 export default function OrderTracking({
   orderNumber,
+  paymentResult,
   onContinueBrowsing,
   onDone,
 }: Props) {

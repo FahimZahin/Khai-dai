@@ -1897,6 +1897,11 @@ orderNumber = confirmedOrderNumber;
         // Ignore storage errors.
       }
 
+      setPaymentResult(null);
+      const cleanUrl = new URL(window.location.href);
+      cleanUrl.searchParams.delete("paymentResult");
+      cleanUrl.searchParams.delete("orderNumber");
+      window.history.replaceState({}, "", cleanUrl);
       setTrackingOrderNumber(null);
       setIsCartOpen(false);
 
