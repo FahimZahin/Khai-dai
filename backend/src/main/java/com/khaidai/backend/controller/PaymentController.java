@@ -19,15 +19,7 @@ import java.util.Locale;
 
 @RestController
 @RequestMapping("/api/payments")
-@CrossOrigin(
-    originPatterns = {
-        "http://localhost:*",
-        "http://127.0.0.1:*",
-        "http://192.168.*:*",
-        "http://10.*:*",
-        "http://172.*:*"
-    }
-)
+
 public class PaymentController {
 
     private final PaymentService paymentService;
@@ -39,14 +31,23 @@ public class PaymentController {
         this.paymentService = paymentService;
     }
 
-    @PostMapping("/initiate")
-    public ResponseEntity<PaymentInitiateResponse> initiatePayment(
-            @Valid @RequestBody PaymentInitiateRequest request
-    ) {
-        return ResponseEntity.ok(
-                paymentService.initiatePayment(request)
-        );
+@CrossOrigin(
+    originPatterns = {
+        "http://localhost:*",
+        "http://127.0.0.1:*",
+        "http://192.168.*:*",
+        "http://10.*:*",
+        "http://172.*:*"
     }
+)
+@PostMapping("/initiate")
+public ResponseEntity<PaymentInitiateResponse> initiatePayment(
+        @Valid @RequestBody PaymentInitiateRequest request
+) {
+    return ResponseEntity.ok(
+            paymentService.initiatePayment(request)
+    );
+}
 
     @PostMapping("/callback/success")
     public ResponseEntity<Void> success(
