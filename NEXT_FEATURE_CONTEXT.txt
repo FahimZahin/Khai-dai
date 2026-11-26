@@ -1,0 +1,7966 @@
+KHAI-DAI PROJECT CONTEXT
+Generated: 11/26/2026 12:58:21
+
+========== BACKEND JAVA SOURCE ==========
+
+===== backend\src\main\java\com\khaidai\backend\BackendApplication.java =====
+package com.khaidai.backend;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+
+@SpringBootApplication
+public class BackendApplication {
+
+	public static void main(String[] args) {
+		SpringApplication.run(BackendApplication.class, args);
+	}
+
+}
+
+
+===== backend\src\main\java\com\khaidai\backend\controller\OrderAdminController.java =====
+package com.khaidai.backend.controller;
+
+import com.khaidai.backend.dto.AdminOrderResponse;
+import com.khaidai.backend.dto.UpdateOrderStatusRequest;
+import com.khaidai.backend.service.OrderAdminService;
+
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/api/admin/orders")
+@CrossOrigin(
+        originPatterns = {
+                "http://localhost:*",
+                "http://127.0.0.1:*",
+                "http://192.168.*:*",
+                "http://10.*:*",
+                "http://172.*:*"
+        }
+)
+public class OrderAdminController {
+
+    private final OrderAdminService orderAdminService;
+
+    public OrderAdminController(
+            OrderAdminService orderAdminService
+    ) {
+        this.orderAdminService = orderAdminService;
+    }
+
+    @GetMapping
+    public List<AdminOrderResponse> getAllOrders(
+            @RequestHeader(
+                    value = "X-Admin-Key",
+                    required = false
+            )
+            String adminKey
+    ) {
+        return orderAdminService.getAllOrders(adminKey);
+    }
+
+    @PatchMapping("/{orderNumber}/status")
+    public AdminOrderResponse updateOrderStatus(
+            @PathVariable String orderNumber,
+            @RequestHeader(
+                    value = "X-Admin-Key",
+                    required = false
+            )
+            String adminKey,
+            @RequestBody(required = false)
+            UpdateOrderStatusRequest request
+    ) {
+        return orderAdminService.updateOrderStatus(
+                orderNumber,
+                request == null ? null : request.status(),
+                adminKey
+        );
+    }
+
+    @PatchMapping("/{orderNumber}/cash-payment")
+    public AdminOrderResponse markCashPaymentAsPaid(
+            @PathVariable String orderNumber,
+            @RequestHeader(
+                    value = "X-Admin-Key",
+                    required = false
+            )
+            String adminKey
+    ) {
+        return orderAdminService.markCashPaymentAsPaid(
+                orderNumber,
+                adminKey
+        );
+    }
+}
+
+===== backend\src\main\java\com\khaidai\backend\controller\OrderController.java =====
+
+package com.khaidai.backend.controller;
+
+import com.khaidai.backend.dto.CreateOrderRequest;
+import com.khaidai.backend.dto.OrderResponse;
+import com.khaidai.backend.service.OrderService;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("/api/orders")
+@CrossOrigin(
+    originPatterns = {
+        "http://localhost:*",
+        "http://127.0.0.1:*",
+        "http://192.168.*:*",
+        "http://10.*:*",
+        "http://172.*:*"
+    }
+)
+public class OrderController {
+
+    private final OrderService orderService;
+
+    public OrderController(OrderService orderService) {
+        this.orderService = orderService;
+    }
+
+    // ==========================================
+    // CUSTOMER SUBMITS ORDER
+    // ==========================================
+
+    @PostMapping
+    public ResponseEntity<OrderResponse> createOrder(
+            @RequestBody CreateOrderRequest request
+    ) {
+
+        OrderResponse response =
+                orderService.createOrder(request);
+
+        return ResponseEntity
+                .status(HttpStatus.CREATED)
+                .body(response);
+    }
+
+    // ==========================================
+    // CUSTOMER TRACKS ORDER
+    // ==========================================
+
+    @GetMapping("/{orderNumber}")
+    public ResponseEntity<OrderResponse> getOrder(
+            @PathVariable String orderNumber
+    ) {
+
+        return ResponseEntity.ok(
+                orderService.getOrder(orderNumber)
+        );
+    }
+}
+
+
+===== backend\src\main\java\com\khaidai\backend\controller\PaymentController.java =====
+
+package com.khaidai.backend.controller;
+
+import com.khaidai.backend.dto.PaymentInitiateRequest;
+import com.khaidai.backend.dto.PaymentInitiateResponse;
+import com.khaidai.backend.service.PaymentService;
+
+import jakarta.validation.Valid;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.util.MultiValueMap;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.util.UriComponentsBuilder;
+
+import java.net.URI;
+import java.util.Locale;
+
+@RestController
+@RequestMapping("/api/payments")
+
+public class PaymentController {
+
+    private final PaymentService paymentService;
+
+    @Value("${sslcommerz.frontend-base-url:http://localhost:5173}")
+    private String frontendBaseUrl;
+
+    public PaymentController(PaymentService paymentService) {
+        this.paymentService = paymentService;
+    }
+
+@CrossOrigin(
+    originPatterns = {
+        "http://localhost:*",
+        "http://127.0.0.1:*",
+        "http://192.168.*:*",
+        "http://10.*:*",
+        "http://172.*:*"
+    }
+)
+@PostMapping("/initiate")
+public ResponseEntity<PaymentInitiateResponse> initiatePayment(
+        @Valid @RequestBody PaymentInitiateRequest request
+) {
+    return ResponseEntity.ok(
+            paymentService.initiatePayment(request)
+    );
+}
+
+    @PostMapping("/callback/success")
+    public ResponseEntity<Void> success(
+            @RequestParam MultiValueMap<String, String> params
+    ) {
+        return redirect(
+                paymentService.handleGatewayCallback(params, "success")
+        );
+    }
+
+    @PostMapping("/callback/fail")
+    public ResponseEntity<Void> fail(
+            @RequestParam MultiValueMap<String, String> params
+    ) {
+        return redirect(
+                paymentService.handleGatewayCallback(params, "fail")
+        );
+    }
+
+    @PostMapping("/callback/cancel")
+    public ResponseEntity<Void> cancel(
+            @RequestParam MultiValueMap<String, String> params
+    ) {
+        return redirect(
+                paymentService.handleGatewayCallback(params, "cancel")
+        );
+    }
+
+    @PostMapping("/callback/ipn")
+    public ResponseEntity<String> ipn(
+            @RequestParam MultiValueMap<String, String> params
+    ) {
+        paymentService.handleGatewayCallback(params, "ipn");
+
+        return ResponseEntity.ok("IPN received");
+    }
+
+    private ResponseEntity<Void> redirect(
+            PaymentService.CallbackResult result
+    ) {
+        URI destination = UriComponentsBuilder
+                .fromUriString(frontendBaseUrl)
+                .queryParam(
+                        "paymentResult",
+                        result.paymentStatus().name().toLowerCase(Locale.ROOT)
+                )
+                .queryParam("orderNumber", result.orderNumber())
+                .build()
+                .encode()
+                .toUri();
+
+        return ResponseEntity
+                .status(HttpStatus.SEE_OTHER)
+                .location(destination)
+                .build();
+    }
+}
+
+
+===== backend\src\main\java\com\khaidai\backend\controller\TableAdminController.java =====
+
+package com.khaidai.backend.controller;
+
+import com.khaidai.backend.dto.TableQrAdminResponse;
+import com.khaidai.backend.service.TableAdminService;
+
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/api/admin/tables")
+@CrossOrigin(
+        originPatterns = {
+                "http://localhost:*",
+                "http://127.0.0.1:*"
+        }
+)
+public class TableAdminController {
+
+    private final TableAdminService tableAdminService;
+
+    public TableAdminController(
+            TableAdminService tableAdminService
+    ) {
+        this.tableAdminService = tableAdminService;
+    }
+
+    @GetMapping("/qr")
+    public List<TableQrAdminResponse> getQrCodes(
+            @RequestHeader(
+                    value = "X-Admin-Key",
+                    required = false
+            )
+            String adminKey
+    ) {
+
+        return tableAdminService.getAllQrCodes(adminKey);
+    }
+}
+
+
+===== backend\src\main\java\com\khaidai\backend\controller\TableController.java =====
+
+package com.khaidai.backend.controller;
+
+import com.khaidai.backend.dto.TableResponse;
+import com.khaidai.backend.dto.TableValidationResponse;
+import com.khaidai.backend.service.TableService;
+
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/api/tables")
+@CrossOrigin(
+        originPatterns = {
+                "http://localhost:*",
+                "http://127.0.0.1:*"
+        }
+)
+public class TableController {
+
+    private final TableService tableService;
+
+    public TableController(TableService tableService) {
+        this.tableService = tableService;
+    }
+
+    // GET all restaurant tables
+    @GetMapping
+    public List<TableResponse> getAllTables() {
+
+        return tableService.getAllTables();
+    }
+
+    // Validate a restaurant table QR code
+    @GetMapping("/validate/{token}")
+    public TableValidationResponse validateQrCode(
+            @PathVariable String token
+    ) {
+
+        return tableService.validateQrToken(token);
+    }
+}
+
+
+===== backend\src\main\java\com\khaidai\backend\dto\AdminOrderResponse.java =====
+package com.khaidai.backend.dto;
+
+import com.khaidai.backend.entity.OrderStatus;
+
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.util.List;
+
+public record AdminOrderResponse(
+        Long id,
+        String orderNumber,
+        Integer tableNumber,
+        OrderStatus status,
+        BigDecimal totalAmount,
+        Integer totalPreparationWorkMinutes,
+        String customerNote,
+        Instant createdAt,
+        Instant updatedAt,
+
+        String paymentMethod,
+        String paymentStatus,
+        String transactionId,
+        BigDecimal paymentAmount,
+        String paymentCurrency,
+        Instant paidAt,
+
+        List<ItemResponse> items
+) {
+
+    public record ItemResponse(
+            Integer foodId,
+            String foodName,
+            Integer quantity,
+            BigDecimal unitPrice,
+            BigDecimal lineTotal,
+            String spiceLevel,
+            Integer preparationTimeMinutes,
+            List<AddonResponse> selectedAddons
+    ) {
+    }
+
+    public record AddonResponse(
+            String name,
+            BigDecimal price
+    ) {
+    }
+}
+
+===== backend\src\main\java\com\khaidai\backend\dto\CreateOrderRequest.java =====
+package com.khaidai.backend.dto;
+
+import com.khaidai.backend.entity.PaymentMethod;
+
+import java.util.List;
+
+public record CreateOrderRequest(
+        String tableToken,
+        String customerNote,
+        PaymentMethod paymentMethod,
+        List<ItemRequest> items
+) {
+
+    public record ItemRequest(
+            Integer foodId,
+            Integer quantity,
+            String spiceLevel,
+            List<AddonRequest> selectedAddons
+    ) {
+    }
+
+    public record AddonRequest(
+            String id
+    ) {
+    }
+}
+
+===== backend\src\main\java\com\khaidai\backend\dto\OrderResponse.java =====
+
+package com.khaidai.backend.dto;
+
+import com.khaidai.backend.entity.OrderStatus;
+
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.util.List;
+
+public record OrderResponse(
+        Long id,
+        String orderNumber,
+        Integer tableNumber,
+        OrderStatus status,
+        BigDecimal totalAmount,
+        Integer totalPreparationWorkMinutes,
+        Instant createdAt,
+        List<ItemResponse> items
+) {
+
+    public record ItemResponse(
+            Integer foodId,
+            String foodName,
+            Integer quantity,
+            BigDecimal unitPrice,
+            BigDecimal lineTotal,
+            String spiceLevel,
+            Integer preparationTimeMinutes,
+            List<AddonResponse> selectedAddons
+    ) {
+    }
+
+    public record AddonResponse(
+            String name,
+            BigDecimal price
+    ) {
+    }
+}
+
+
+===== backend\src\main\java\com\khaidai\backend\dto\PaymentInitiateRequest.java =====
+package com.khaidai.backend.dto;
+
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
+
+public record PaymentInitiateRequest(
+
+    @NotBlank
+    @Size(max = 50)
+    String orderNumber,
+
+    @NotBlank
+    @Size(max = 100)
+    String customerName,
+
+    @NotBlank
+    @Email
+    @Size(max = 100)
+    String customerEmail,
+
+    @NotBlank
+    @Size(max = 20)
+    String customerPhone,
+
+    @NotBlank
+    @Size(max = 200)
+    String customerAddress,
+
+    @NotBlank
+    @Size(max = 80)
+    String customerCity,
+
+    @Size(max = 20)
+    String customerPostcode
+
+) {
+}
+
+===== backend\src\main\java\com\khaidai\backend\dto\PaymentInitiateResponse.java =====
+package com.khaidai.backend.dto;
+
+import com.khaidai.backend.entity.PaymentStatus;
+
+import java.math.BigDecimal;
+
+public record PaymentInitiateResponse(
+    String transactionId,
+    BigDecimal amount,
+    String currency,
+    String gatewayPageUrl,
+    PaymentStatus status
+) {
+}
+
+===== backend\src\main\java\com\khaidai\backend\dto\TableQrAdminResponse.java =====
+
+package com.khaidai.backend.dto;
+
+public record TableQrAdminResponse(
+        Long id,
+        Integer tableNumber,
+        String qrToken,
+        boolean active
+) {
+}
+
+
+===== backend\src\main\java\com\khaidai\backend\dto\TableResponse.java =====
+
+package com.khaidai.backend.dto;
+
+public record TableResponse(
+        Long id,
+        Integer tableNumber,
+        boolean active
+) {
+}
+
+
+===== backend\src\main\java\com\khaidai\backend\dto\TableValidationResponse.java =====
+
+package com.khaidai.backend.dto;
+
+public record TableValidationResponse(
+        boolean valid,
+        Integer tableNumber,
+        String message
+) {
+}
+
+
+===== backend\src\main\java\com\khaidai\backend\dto\UpdateOrderStatusRequest.java =====
+
+package com.khaidai.backend.dto;
+
+public record UpdateOrderStatusRequest(
+        String status
+) {
+}
+
+
+===== backend\src\main\java\com\khaidai\backend\entity\OrderItem.java =====
+
+package com.khaidai.backend.entity;
+
+import jakarta.persistence.*;
+
+import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.List;
+
+@Entity
+@Table(name = "order_items")
+public class OrderItem {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "order_id", nullable = false)
+    private RestaurantOrder order;
+
+    @Column(name = "food_id", nullable = false)
+    private Integer foodId;
+
+    @Column(name = "food_name", nullable = false, length = 120)
+    private String foodName;
+
+    @Column(nullable = false)
+    private Integer quantity;
+
+    @Column(name = "unit_price", nullable = false, precision = 10, scale = 2)
+    private BigDecimal unitPrice;
+
+    @Column(name = "spice_level", nullable = false, length = 30)
+    private String spiceLevel;
+
+    @Column(name = "preparation_time_minutes", nullable = false)
+    private Integer preparationTimeMinutes;
+
+    @ElementCollection
+    @CollectionTable(
+        name = "order_item_addons",
+        joinColumns = @JoinColumn(name = "order_item_id")
+    )
+    private List<OrderItemAddon> selectedAddons = new ArrayList<>();
+
+    public OrderItem() {
+    }
+
+    public OrderItem(
+            Integer foodId,
+            String foodName,
+            Integer quantity,
+            BigDecimal unitPrice,
+            String spiceLevel,
+            Integer preparationTimeMinutes,
+            List<OrderItemAddon> selectedAddons
+    ) {
+        this.foodId = foodId;
+        this.foodName = foodName;
+        this.quantity = quantity;
+        this.unitPrice = unitPrice;
+        this.spiceLevel = spiceLevel;
+        this.preparationTimeMinutes = preparationTimeMinutes;
+
+        if (selectedAddons != null) {
+            this.selectedAddons = new ArrayList<>(selectedAddons);
+        }
+    }
+
+    public BigDecimal getLineTotal() {
+
+        BigDecimal addonTotal = selectedAddons.stream()
+                .map(OrderItemAddon::getPrice)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        return unitPrice.add(addonTotal)
+                .multiply(BigDecimal.valueOf(quantity));
+    }
+
+    public Long getId() {
+        return id;
+    }
+
+    public RestaurantOrder getOrder() {
+        return order;
+    }
+
+    public void setOrder(RestaurantOrder order) {
+        this.order = order;
+    }
+
+    public Integer getFoodId() {
+        return foodId;
+    }
+
+    public String getFoodName() {
+        return foodName;
+    }
+
+    public Integer getQuantity() {
+        return quantity;
+    }
+
+    public BigDecimal getUnitPrice() {
+        return unitPrice;
+    }
+
+    public String getSpiceLevel() {
+        return spiceLevel;
+    }
+
+    public Integer getPreparationTimeMinutes() {
+        return preparationTimeMinutes;
+    }
+
+    public List<OrderItemAddon> getSelectedAddons() {
+        return selectedAddons;
+    }
+}
+
+
+===== backend\src\main\java\com\khaidai\backend\entity\OrderItemAddon.java =====
+
+package com.khaidai.backend.entity;
+
+import jakarta.persistence.*;
+import java.math.BigDecimal;
+
+@Embeddable
+public class OrderItemAddon {
+
+    @Column(name = "addon_name", nullable = false, length = 100)
+    private String name;
+
+    @Column(name = "addon_price", nullable = false, precision = 10, scale = 2)
+    private BigDecimal price;
+
+    public OrderItemAddon() {
+    }
+
+    public OrderItemAddon(String name, BigDecimal price) {
+        this.name = name;
+        this.price = price;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public BigDecimal getPrice() {
+        return price;
+    }
+}
+
+
+===== backend\src\main\java\com\khaidai\backend\entity\OrderStatus.java =====
+package com.khaidai.backend.entity;
+
+public enum OrderStatus {
+    AWAITING_PAYMENT,
+    PENDING,
+    ACCEPTED,
+    REJECTED,
+    PREPARING,
+    READY,
+    SERVED,
+    CANCELLED
+}
+
+===== backend\src\main\java\com\khaidai\backend\entity\Payment.java =====
+package com.khaidai.backend.entity;
+
+import jakarta.persistence.*;
+
+import java.math.BigDecimal;
+import java.time.Instant;
+
+@Entity
+@Table(
+    name = "payments",
+    indexes = {
+        @Index(name = "idx_payment_order", columnList = "order_id"),
+        @Index(name = "idx_payment_status", columnList = "status")
+    }
+)
+public class Payment {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "order_id", nullable = false)
+    private RestaurantOrder order;
+
+    @Column(name = "transaction_id", nullable = false, unique = true, length = 100)
+    private String transactionId;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "payment_method", nullable = false, length = 30)
+    private PaymentMethod paymentMethod;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 30)
+    private PaymentStatus status = PaymentStatus.PENDING;
+
+    @Column(nullable = false, precision = 10, scale = 2)
+    private BigDecimal amount;
+
+    @Column(nullable = false, length = 3)
+    private String currency = "BDT";
+
+    @Column(name = "gateway_validation_id", length = 150)
+    private String gatewayValidationId;
+
+    @Column(name = "bank_transaction_id", length = 150)
+    private String bankTransactionId;
+
+    @Column(name = "gateway_session_key", length = 100)
+    private String gatewaySessionKey;
+
+    @Column(name = "gateway_page_url", length = 500)
+    private String gatewayPageUrl;
+
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private Instant createdAt;
+
+    @Column(name = "updated_at", nullable = false)
+    private Instant updatedAt;
+
+    @Column(name = "paid_at")
+    private Instant paidAt;
+
+    public Payment() {
+    }
+
+    @PrePersist
+    protected void onCreate() {
+        Instant now = Instant.now();
+        createdAt = now;
+        updatedAt = now;
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        updatedAt = Instant.now();
+    }
+
+    public Long getId() {
+        return id;
+    }
+
+    public RestaurantOrder getOrder() {
+        return order;
+    }
+
+    public void setOrder(RestaurantOrder order) {
+        this.order = order;
+    }
+
+    public String getTransactionId() {
+        return transactionId;
+    }
+
+    public void setTransactionId(String transactionId) {
+        this.transactionId = transactionId;
+    }
+
+    public PaymentMethod getPaymentMethod() {
+        return paymentMethod;
+    }
+
+    public void setPaymentMethod(PaymentMethod paymentMethod) {
+        this.paymentMethod = paymentMethod;
+    }
+
+    public PaymentStatus getStatus() {
+        return status;
+    }
+
+    public void setStatus(PaymentStatus status) {
+        this.status = status;
+
+        if (status == PaymentStatus.PAID) {
+            this.paidAt = Instant.now();
+        }
+    }
+
+    public BigDecimal getAmount() {
+        return amount;
+    }
+
+    public void setAmount(BigDecimal amount) {
+        this.amount = amount;
+    }
+
+    public String getCurrency() {
+        return currency;
+    }
+
+    public void setCurrency(String currency) {
+        this.currency = currency;
+    }
+
+    public String getGatewayValidationId() {
+        return gatewayValidationId;
+    }
+
+    public void setGatewayValidationId(String gatewayValidationId) {
+        this.gatewayValidationId = gatewayValidationId;
+    }
+
+    public String getBankTransactionId() {
+        return bankTransactionId;
+    }
+
+    public void setBankTransactionId(String bankTransactionId) {
+        this.bankTransactionId = bankTransactionId;
+    }
+
+    public String getGatewaySessionKey() {
+        return gatewaySessionKey;
+    }
+
+    public void setGatewaySessionKey(String gatewaySessionKey) {
+        this.gatewaySessionKey = gatewaySessionKey;
+    }
+
+    public String getGatewayPageUrl() {
+        return gatewayPageUrl;
+    }
+
+    public void setGatewayPageUrl(String gatewayPageUrl) {
+        this.gatewayPageUrl = gatewayPageUrl;
+    }
+
+    public Instant getCreatedAt() {
+        return createdAt;
+    }
+
+    public Instant getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public Instant getPaidAt() {
+        return paidAt;
+    }
+}
+
+===== backend\src\main\java\com\khaidai\backend\entity\PaymentMethod.java =====
+
+package com.khaidai.backend.entity;
+
+public enum PaymentMethod {
+    CASH,
+    SSLCOMMERZ
+}
+
+
+===== backend\src\main\java\com\khaidai\backend\entity\PaymentStatus.java =====
+
+package com.khaidai.backend.entity;
+
+public enum PaymentStatus {
+    PENDING,
+    PAID,
+    FAILED,
+    CANCELLED,
+    REFUNDED
+}
+
+
+===== backend\src\main\java\com\khaidai\backend\entity\RestaurantOrder.java =====
+
+package com.khaidai.backend.entity;
+
+import jakarta.persistence.*;
+
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
+
+@Entity
+@Table(name = "restaurant_orders")
+public class RestaurantOrder {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(name = "order_number", nullable = false, unique = true, length = 50)
+    private String orderNumber;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "table_id", nullable = false)
+    private RestaurantTable restaurantTable;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 30)
+    private OrderStatus status = OrderStatus.PENDING;
+
+    @Column(name = "total_amount", nullable = false, precision = 10, scale = 2)
+    private BigDecimal totalAmount = BigDecimal.ZERO;
+
+    @Column(name = "total_preparation_work_minutes", nullable = false)
+    private Integer totalPreparationWorkMinutes = 0;
+
+    @Column(name = "customer_note", length = 500)
+    private String customerNote;
+
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private Instant createdAt;
+
+    @Column(name = "updated_at", nullable = false)
+    private Instant updatedAt;
+
+    @OneToMany(
+        mappedBy = "order",
+        cascade = CascadeType.ALL,
+        orphanRemoval = true
+    )
+    private List<OrderItem> items = new ArrayList<>();
+
+    public RestaurantOrder() {
+    }
+
+    public RestaurantOrder(
+            String orderNumber,
+            RestaurantTable restaurantTable,
+            String customerNote
+    ) {
+        this.orderNumber = orderNumber;
+        this.restaurantTable = restaurantTable;
+        this.customerNote = customerNote;
+        this.status = OrderStatus.PENDING;
+    }
+
+    public void addItem(OrderItem item) {
+        items.add(item);
+        item.setOrder(this);
+    }
+
+    @PrePersist
+    protected void onCreate() {
+        Instant now = Instant.now();
+        createdAt = now;
+        updatedAt = now;
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        updatedAt = Instant.now();
+    }
+
+    public Long getId() {
+        return id;
+    }
+
+    public String getOrderNumber() {
+        return orderNumber;
+    }
+
+    public RestaurantTable getRestaurantTable() {
+        return restaurantTable;
+    }
+
+    public OrderStatus getStatus() {
+        return status;
+    }
+
+    public void setStatus(OrderStatus status) {
+        this.status = status;
+    }
+
+    public BigDecimal getTotalAmount() {
+        return totalAmount;
+    }
+
+    public void setTotalAmount(BigDecimal totalAmount) {
+        this.totalAmount = totalAmount;
+    }
+
+    public Integer getTotalPreparationWorkMinutes() {
+        return totalPreparationWorkMinutes;
+    }
+
+    public void setTotalPreparationWorkMinutes(
+            Integer totalPreparationWorkMinutes
+    ) {
+        this.totalPreparationWorkMinutes = totalPreparationWorkMinutes;
+    }
+
+    public String getCustomerNote() {
+        return customerNote;
+    }
+
+    public Instant getCreatedAt() {
+        return createdAt;
+    }
+
+    public Instant getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public List<OrderItem> getItems() {
+        return items;
+    }
+}
+
+
+===== backend\src\main\java\com\khaidai\backend\entity\RestaurantTable.java =====
+
+package com.khaidai.backend.entity;
+
+import jakarta.persistence.*;
+import java.time.Instant;
+
+@Entity
+@Table(name = "restaurant_tables")
+public class RestaurantTable {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(name = "table_number", nullable = false, unique = true)
+    private Integer tableNumber;
+
+    @Column(name = "qr_token", nullable = false, unique = true, length = 64)
+    private String qrToken;
+
+    @Column(nullable = false)
+    private boolean active = true;
+
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private Instant createdAt;
+
+    public RestaurantTable() {
+    }
+
+    public RestaurantTable(Integer tableNumber, String qrToken) {
+        this.tableNumber = tableNumber;
+        this.qrToken = qrToken;
+        this.active = true;
+    }
+
+    @PrePersist
+    protected void onCreate() {
+        if (createdAt == null) {
+            createdAt = Instant.now();
+        }
+    }
+
+    public Long getId() {
+        return id;
+    }
+
+    public Integer getTableNumber() {
+        return tableNumber;
+    }
+
+    public String getQrToken() {
+        return qrToken;
+    }
+
+    public boolean isActive() {
+        return active;
+    }
+
+    public Instant getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setActive(boolean active) {
+        this.active = active;
+    }
+}
+
+
+===== backend\src\main\java\com\khaidai\backend\repository\OrderRepository.java =====
+
+package com.khaidai.backend.repository;
+
+import com.khaidai.backend.entity.RestaurantOrder;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.util.List;
+import java.util.Optional;
+
+public interface OrderRepository
+        extends JpaRepository<RestaurantOrder, Long> {
+
+    Optional<RestaurantOrder> findByOrderNumber(String orderNumber);
+
+    List<RestaurantOrder> findAllByOrderByCreatedAtDesc();
+}
+
+
+===== backend\src\main\java\com\khaidai\backend\repository\PaymentRepository.java =====
+
+package com.khaidai.backend.repository;
+
+import com.khaidai.backend.entity.Payment;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.util.List;
+import java.util.Optional;
+
+public interface PaymentRepository
+        extends JpaRepository<Payment, Long> {
+
+    Optional<Payment> findByTransactionId(String transactionId);
+
+    List<Payment> findAllByOrder_IdOrderByCreatedAtDesc(
+        Long orderId
+    );
+
+    boolean existsByTransactionId(String transactionId);
+}
+
+
+===== backend\src\main\java\com\khaidai\backend\repository\TableRepository.java =====
+
+package com.khaidai.backend.repository;
+
+import com.khaidai.backend.entity.RestaurantTable;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.util.List;
+import java.util.Optional;
+
+public interface TableRepository
+        extends JpaRepository<RestaurantTable, Long> {
+
+    Optional<RestaurantTable> findByQrTokenAndActiveTrue(
+            String qrToken
+    );
+
+    Optional<RestaurantTable> findByTableNumber(
+            Integer tableNumber
+    );
+
+    boolean existsByTableNumber(Integer tableNumber);
+
+    List<RestaurantTable> findAllByOrderByTableNumberAsc();
+}
+
+
+===== backend\src\main\java\com\khaidai\backend\service\MenuCatalog.java =====
+package com.khaidai.backend.service;
+
+import java.math.BigDecimal;
+import java.util.Map;
+import java.util.Set;
+
+public final class MenuCatalog {
+
+    private MenuCatalog() {
+    }
+
+    public record Addon(
+            String id,
+            String name,
+            BigDecimal price
+    ) {
+    }
+
+    public record FoodItem(
+            Integer id,
+            String name,
+            BigDecimal price,
+            Integer preparationTimeMinutes,
+            Set<String> spiceOptions,
+            Map<String, Addon> addons
+    ) {
+    }
+
+    private static final Set<String> ALL_SPICE_LEVELS = Set.of(
+            "Not Spicy",
+            "Mild",
+            "Medium",
+            "Hot"
+    );
+
+    private static BigDecimal money(String value) {
+        return new BigDecimal(value);
+    }
+
+    private static final Map<Integer, FoodItem> FOODS = Map.of(
+
+        1, new FoodItem(
+            1,
+            "Chicken Biryani",
+            money("320.00"),
+            25,
+            ALL_SPICE_LEVELS,
+            Map.of(
+                "extra-chicken", new Addon(
+                    "extra-chicken", "Extra chicken", money("120")
+                ),
+                "boiled-egg", new Addon(
+                    "boiled-egg", "Boiled egg", money("25")
+                ),
+                "extra-rice", new Addon(
+                    "extra-rice", "Extra rice", money("60")
+                ),
+                "raita", new Addon(
+                    "raita", "Extra raita", money("30")
+                )
+            )
+        ),
+
+        2, new FoodItem(
+            2,
+            "Beef Burger",
+            money("280.00"),
+            15,
+            ALL_SPICE_LEVELS,
+            Map.of(
+                "extra-cheese", new Addon(
+                    "extra-cheese", "Extra cheese", money("40")
+                ),
+                "extra-patty", new Addon(
+                    "extra-patty", "Extra beef patty", money("120")
+                ),
+                "jalapenos", new Addon(
+                    "jalapenos", "Jalapeños", money("25")
+                ),
+                "extra-sauce", new Addon(
+                    "extra-sauce", "Extra sauce", money("20")
+                )
+            )
+        ),
+
+        3, new FoodItem(
+            3,
+            "Chicken Pasta",
+            money("350.00"),
+            20,
+            ALL_SPICE_LEVELS,
+            Map.of(
+                "extra-chicken", new Addon(
+                    "extra-chicken", "Extra chicken", money("100")
+                ),
+                "extra-cheese", new Addon(
+                    "extra-cheese", "Extra cheese", money("40")
+                ),
+                "mushrooms", new Addon(
+                    "mushrooms", "Mushrooms", money("50")
+                ),
+                "garlic-bread", new Addon(
+                    "garlic-bread", "Garlic bread", money("60")
+                )
+            )
+        ),
+
+        4, new FoodItem(
+            4,
+            "Grilled Chicken",
+            money("420.00"),
+            30,
+            ALL_SPICE_LEVELS,
+            Map.of(
+                "extra-chicken", new Addon(
+                    "extra-chicken",
+                    "Extra chicken portion",
+                    money("150")
+                ),
+                "extra-vegetables", new Addon(
+                    "extra-vegetables",
+                    "Extra vegetables",
+                    money("50")
+                ),
+                "mashed-potatoes", new Addon(
+                    "mashed-potatoes",
+                    "Mashed potatoes",
+                    money("60")
+                ),
+                "extra-sauce", new Addon(
+                    "extra-sauce", "Extra sauce", money("25")
+                )
+            )
+        ),
+
+        5, new FoodItem(
+            5,
+            "French Fries",
+            money("150.00"),
+            10,
+            ALL_SPICE_LEVELS,
+            Map.of(
+                "extra-fries", new Addon(
+                    "extra-fries", "Extra fries", money("80")
+                ),
+                "cheese-dip", new Addon(
+                    "cheese-dip", "Cheese dip", money("30")
+                ),
+                "spicy-seasoning", new Addon(
+                    "spicy-seasoning",
+                    "Spicy seasoning",
+                    money("15")
+                )
+            )
+        ),
+
+        6, new FoodItem(
+            6,
+            "Fresh Lemonade",
+            money("100.00"),
+            5,
+            Set.of("Not Spicy"),
+            Map.of(
+                "extra-lemon", new Addon(
+                    "extra-lemon", "Extra lemon", money("15")
+                ),
+                "extra-mint", new Addon(
+                    "extra-mint", "Extra mint", money("10")
+                ),
+                "extra-sugar", new Addon(
+                    "extra-sugar", "Extra sugar", money("0")
+                )
+            )
+        )
+    );
+
+    public static FoodItem findById(Integer foodId) {
+
+        if (foodId == null) {
+            return null;
+        }
+
+        return FOODS.get(foodId);
+    }
+}
+
+===== backend\src\main\java\com\khaidai\backend\service\OrderAdminService.java =====
+package com.khaidai.backend.service;
+
+import com.khaidai.backend.dto.AdminOrderResponse;
+import com.khaidai.backend.entity.OrderStatus;
+import com.khaidai.backend.entity.Payment;
+import com.khaidai.backend.entity.PaymentMethod;
+import com.khaidai.backend.entity.PaymentStatus;
+import com.khaidai.backend.entity.RestaurantOrder;
+import com.khaidai.backend.repository.OrderRepository;
+import com.khaidai.backend.repository.PaymentRepository;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
+
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.util.List;
+import java.util.Locale;
+import java.util.UUID;
+
+@Service
+public class OrderAdminService {
+
+    private final OrderRepository orderRepository;
+    private final PaymentRepository paymentRepository;
+
+    @Value("${khaidai.admin.api-key:}")
+    private String configuredAdminKey;
+
+    public OrderAdminService(
+            OrderRepository orderRepository,
+            PaymentRepository paymentRepository
+    ) {
+        this.orderRepository = orderRepository;
+        this.paymentRepository = paymentRepository;
+    }
+
+    @Transactional(readOnly = true)
+    public List<AdminOrderResponse> getAllOrders(String adminKey) {
+
+        validateAdminKey(adminKey);
+
+        return orderRepository
+                .findAllByOrderByCreatedAtDesc()
+                .stream()
+                .map(this::toResponse)
+                .toList();
+    }
+
+    @Transactional
+    public AdminOrderResponse updateOrderStatus(
+            String orderNumber,
+            String requestedStatus,
+            String adminKey
+    ) {
+
+        validateAdminKey(adminKey);
+
+        if (requestedStatus == null || requestedStatus.isBlank()) {
+            throw badRequest("Order status is required.");
+        }
+
+        OrderStatus newStatus;
+
+        try {
+            newStatus = OrderStatus.valueOf(
+                    requestedStatus.trim().toUpperCase(Locale.ROOT)
+            );
+        } catch (IllegalArgumentException exception) {
+            throw badRequest("Invalid order status.");
+        }
+
+        RestaurantOrder order = findOrder(orderNumber);
+
+        if (!isValidTransition(order.getStatus(), newStatus)) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Cannot change order status from "
+                            + order.getStatus() + " to " + newStatus + "."
+            );
+        }
+
+        order.setStatus(newStatus);
+
+        RestaurantOrder savedOrder = orderRepository.save(order);
+
+        return toResponse(savedOrder);
+    }
+
+    // ==========================================
+    // MARK CASH PAYMENT AS PAID
+    // ==========================================
+
+    @Transactional
+    public AdminOrderResponse markCashPaymentAsPaid(
+            String orderNumber,
+            String adminKey
+    ) {
+
+        validateAdminKey(adminKey);
+
+        RestaurantOrder order = findOrder(orderNumber);
+
+        if (order.getStatus() == OrderStatus.AWAITING_PAYMENT) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "This order is awaiting online payment."
+            );
+        }
+
+        List<Payment> existingPayments =
+                paymentRepository.findAllByOrder_IdOrderByCreatedAtDesc(
+                        order.getId()
+                );
+
+        Payment latest = existingPayments.isEmpty()
+                ? null
+                : existingPayments.get(0);
+
+        if (latest != null &&
+                latest.getStatus() == PaymentStatus.PAID) {
+
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "This order is already marked as paid."
+            );
+        }
+
+        if (latest != null &&
+                latest.getPaymentMethod() == PaymentMethod.SSLCOMMERZ &&
+                latest.getStatus() == PaymentStatus.PENDING) {
+
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "An online payment is still pending."
+            );
+        }
+
+        Payment cashPayment = new Payment();
+
+        cashPayment.setOrder(order);
+
+        cashPayment.setTransactionId(
+                "CASH-" + UUID.randomUUID()
+                        .toString()
+                        .replace("-", "")
+                        .substring(0, 24)
+                        .toUpperCase(Locale.ROOT)
+        );
+
+        cashPayment.setPaymentMethod(PaymentMethod.CASH);
+        cashPayment.setStatus(PaymentStatus.PAID);
+        cashPayment.setAmount(order.getTotalAmount());
+        cashPayment.setCurrency("BDT");
+
+        paymentRepository.saveAndFlush(cashPayment);
+
+        return toResponse(order);
+    }
+
+    private RestaurantOrder findOrder(String orderNumber) {
+
+        return orderRepository
+                .findByOrderNumber(orderNumber)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Order not found."
+                ));
+    }
+
+    private boolean isValidTransition(
+            OrderStatus current,
+            OrderStatus next
+    ) {
+
+        return switch (current) {
+
+            case PENDING ->
+                    next == OrderStatus.ACCEPTED ||
+                    next == OrderStatus.REJECTED;
+
+            case ACCEPTED ->
+                    next == OrderStatus.PREPARING;
+
+            case PREPARING ->
+                    next == OrderStatus.READY;
+
+            case READY ->
+                    next == OrderStatus.SERVED;
+
+            default -> false;
+        };
+    }
+
+    private void validateAdminKey(String providedAdminKey) {
+
+        if (configuredAdminKey == null ||
+                configuredAdminKey.isBlank()) {
+
+            throw new ResponseStatusException(
+                    HttpStatus.SERVICE_UNAVAILABLE,
+                    "Admin API key is not configured."
+            );
+        }
+
+        if (providedAdminKey == null ||
+                !MessageDigest.isEqual(
+                        configuredAdminKey.getBytes(StandardCharsets.UTF_8),
+                        providedAdminKey.getBytes(StandardCharsets.UTF_8)
+                )) {
+
+            throw new ResponseStatusException(
+                    HttpStatus.UNAUTHORIZED,
+                    "Invalid admin API key."
+            );
+        }
+    }
+
+    // ==========================================
+    // MAP ORDER AND LATEST PAYMENT
+    // ==========================================
+
+    private AdminOrderResponse toResponse(RestaurantOrder order) {
+
+        List<Payment> payments =
+                paymentRepository.findAllByOrder_IdOrderByCreatedAtDesc(
+                        order.getId()
+                );
+
+        Payment latest = payments.isEmpty()
+                ? null
+                : payments.get(0);
+
+        String paymentMethod = latest != null
+                ? latest.getPaymentMethod().name()
+                : order.getStatus() == OrderStatus.AWAITING_PAYMENT
+                    ? "SSLCOMMERZ"
+                    : "CASH";
+
+        String paymentStatus = latest != null
+                ? latest.getStatus().name()
+                : "CASH".equals(paymentMethod)
+                    ? "CASH_DUE"
+                    : "PENDING";
+
+        List<AdminOrderResponse.ItemResponse> items =
+                order.getItems()
+                        .stream()
+                        .map(item ->
+                                new AdminOrderResponse.ItemResponse(
+                                        item.getFoodId(),
+                                        item.getFoodName(),
+                                        item.getQuantity(),
+                                        item.getUnitPrice(),
+                                        item.getLineTotal(),
+                                        item.getSpiceLevel(),
+                                        item.getPreparationTimeMinutes(),
+                                        item.getSelectedAddons()
+                                                .stream()
+                                                .map(addon ->
+                                                        new AdminOrderResponse.AddonResponse(
+                                                                addon.getName(),
+                                                                addon.getPrice()
+                                                        )
+                                                )
+                                                .toList()
+                                )
+                        )
+                        .toList();
+
+        return new AdminOrderResponse(
+                order.getId(),
+                order.getOrderNumber(),
+                order.getRestaurantTable().getTableNumber(),
+                order.getStatus(),
+                order.getTotalAmount(),
+                order.getTotalPreparationWorkMinutes(),
+                order.getCustomerNote(),
+                order.getCreatedAt(),
+                order.getUpdatedAt(),
+
+                paymentMethod,
+                paymentStatus,
+                latest != null ? latest.getTransactionId() : null,
+                latest != null ? latest.getAmount() : null,
+                latest != null ? latest.getCurrency() : "BDT",
+                latest != null ? latest.getPaidAt() : null,
+
+                items
+        );
+    }
+
+    private ResponseStatusException badRequest(String message) {
+
+        return new ResponseStatusException(
+                HttpStatus.BAD_REQUEST,
+                message
+        );
+    }
+}
+
+===== backend\src\main\java\com\khaidai\backend\service\OrderService.java =====
+package com.khaidai.backend.service;
+
+import com.khaidai.backend.dto.CreateOrderRequest;
+import com.khaidai.backend.dto.OrderResponse;
+
+import com.khaidai.backend.entity.OrderItem;
+import com.khaidai.backend.entity.OrderItemAddon;
+import com.khaidai.backend.entity.OrderStatus;
+import com.khaidai.backend.entity.PaymentMethod;
+import com.khaidai.backend.entity.RestaurantOrder;
+import com.khaidai.backend.entity.RestaurantTable;
+
+import com.khaidai.backend.repository.OrderRepository;
+import com.khaidai.backend.repository.TableRepository;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
+
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.UUID;
+
+@Service
+public class OrderService {
+
+    private final OrderRepository orderRepository;
+    private final TableRepository tableRepository;
+
+    public OrderService(
+            OrderRepository orderRepository,
+            TableRepository tableRepository
+    ) {
+        this.orderRepository = orderRepository;
+        this.tableRepository = tableRepository;
+    }
+
+    // ==========================================
+    // CREATE CUSTOMER ORDER
+    // ==========================================
+
+    @Transactional
+    public OrderResponse createOrder(CreateOrderRequest request) {
+
+        if (request == null) {
+            throw badRequest("Order information is required.");
+        }
+
+        // Validate table QR token
+
+        if (request.tableToken() == null ||
+                request.tableToken().isBlank()) {
+
+            throw badRequest("Table QR token is required.");
+        }
+
+        RestaurantTable table = tableRepository
+                .findByQrTokenAndActiveTrue(request.tableToken())
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Invalid or inactive restaurant table."
+                ));
+
+        // Validate customer note
+
+        if (request.customerNote() != null &&
+                request.customerNote().length() > 500) {
+
+            throw badRequest(
+                    "Customer note cannot exceed 500 characters."
+            );
+        }
+
+        // Validate order items
+
+        if (request.items() == null ||
+                request.items().isEmpty()) {
+
+            throw badRequest(
+                    "An order must contain at least one item."
+            );
+        }
+
+        if (request.items().size() > 50) {
+
+            throw badRequest(
+                    "An order cannot contain more than 50 item lines."
+            );
+        }
+
+        RestaurantOrder order = new RestaurantOrder(
+                "KD-" + UUID.randomUUID().toString().toUpperCase(),
+                table,
+                request.customerNote()
+        );
+
+        BigDecimal orderTotal = BigDecimal.ZERO;
+
+        int totalPreparationWork = 0;
+
+        // Process every order item
+
+        for (CreateOrderRequest.ItemRequest item : request.items()) {
+
+            // Validate food and retrieve official catalog data
+
+            MenuCatalog.FoodItem food = validateItem(item);
+
+            List<OrderItemAddon> addons = new ArrayList<>();
+
+            // Validate selected add-ons
+
+            if (item.selectedAddons() != null) {
+
+                if (item.selectedAddons().size() > 20) {
+
+                    throw badRequest("Too many add-ons selected.");
+                }
+
+                // Prevent duplicate add-on selections
+
+                Set<String> selectedAddonIds = new HashSet<>();
+
+                for (CreateOrderRequest.AddonRequest addonRequest
+                        : item.selectedAddons()) {
+
+                    if (addonRequest == null ||
+                            addonRequest.id() == null ||
+                            addonRequest.id().isBlank()) {
+
+                        throw badRequest(
+                                "Invalid add-on information."
+                        );
+                    }
+
+                    String addonId = addonRequest.id().trim();
+
+                    if (!selectedAddonIds.add(addonId)) {
+
+                        throw badRequest(
+                                "Duplicate add-on selection."
+                        );
+                    }
+
+                    // Find add-on belonging to this particular food
+
+                    MenuCatalog.Addon officialAddon =
+                            food.addons().get(addonId);
+
+                    if (officialAddon == null) {
+
+                        throw badRequest(
+                                "Selected add-on is not available for this food."
+                        );
+                    }
+
+                    // Use official backend add-on price
+
+                    addons.add(new OrderItemAddon(
+                            officialAddon.name(),
+                            normalizePrice(officialAddon.price())
+                    ));
+                }
+            }
+
+            // Build order item using backend-authoritative values
+
+            OrderItem orderItem = new OrderItem(
+
+                    food.id(),
+
+                    food.name(),
+
+                    item.quantity(),
+
+                    normalizePrice(food.price()),
+
+                    item.spiceLevel(),
+
+                    food.preparationTimeMinutes(),
+
+                    addons
+            );
+
+            order.addItem(orderItem);
+
+            // Calculate actual line total
+
+            orderTotal = orderTotal.add(
+                    orderItem.getLineTotal()
+            );
+
+            // Different dishes can be prepared simultaneously
+
+            totalPreparationWork = Math.max(
+                    totalPreparationWork,
+                    food.preparationTimeMinutes()
+            );
+        }
+
+        // Save calculated totals
+
+        order.setTotalAmount(
+                orderTotal.setScale(2, RoundingMode.HALF_UP)
+        );
+
+        order.setTotalPreparationWorkMinutes(
+                totalPreparationWork
+        );
+
+        // Preserve existing behavior when paymentMethod is omitted.
+        PaymentMethod paymentMethod = request.paymentMethod() == null
+                ? PaymentMethod.CASH
+                : request.paymentMethod();
+
+        order.setStatus(
+                paymentMethod == PaymentMethod.SSLCOMMERZ
+                        ? OrderStatus.AWAITING_PAYMENT
+                        : OrderStatus.PENDING
+        );
+
+        RestaurantOrder savedOrder = orderRepository.save(order);
+
+        return toResponse(savedOrder);
+    }
+
+    // ==========================================
+    // VALIDATE ITEM AND GET OFFICIAL FOOD
+    // ==========================================
+
+    private MenuCatalog.FoodItem validateItem(
+            CreateOrderRequest.ItemRequest item
+    ) {
+
+        if (item == null) {
+
+            throw badRequest("Invalid order item.");
+        }
+
+        if (item.foodId() == null) {
+
+            throw badRequest("Invalid food ID.");
+        }
+
+        MenuCatalog.FoodItem food =
+                MenuCatalog.findById(item.foodId());
+
+        if (food == null) {
+
+            throw badRequest("Food does not exist.");
+        }
+
+        if (item.quantity() == null ||
+                item.quantity() < 1 ||
+                item.quantity() > 50) {
+
+            throw badRequest(
+                    "Quantity must be between 1 and 50."
+            );
+        }
+
+        // Validate spice level against this food's options
+
+        if (item.spiceLevel() == null ||
+                !food.spiceOptions().contains(item.spiceLevel())) {
+
+            throw badRequest(
+                    "Invalid spice level for this food."
+            );
+        }
+
+        return food;
+    }
+
+    // ==========================================
+    // NORMALIZE PRICE
+    // ==========================================
+
+    private BigDecimal normalizePrice(BigDecimal price) {
+
+        return price.setScale(2, RoundingMode.HALF_UP);
+    }
+
+    // ==========================================
+    // GET CUSTOMER ORDER
+    // ==========================================
+
+    @Transactional(readOnly = true)
+    public OrderResponse getOrder(String orderNumber) {
+
+        RestaurantOrder order = orderRepository
+                .findByOrderNumber(orderNumber)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Order not found."
+                ));
+
+        return toResponse(order);
+    }
+
+    // ==========================================
+    // CONVERT ENTITY TO RESPONSE
+    // ==========================================
+
+    private OrderResponse toResponse(RestaurantOrder order) {
+
+        List<OrderResponse.ItemResponse> itemResponses =
+                order.getItems().stream()
+
+                        .map(item -> new OrderResponse.ItemResponse(
+
+                                item.getFoodId(),
+
+                                item.getFoodName(),
+
+                                item.getQuantity(),
+
+                                item.getUnitPrice(),
+
+                                item.getLineTotal(),
+
+                                item.getSpiceLevel(),
+
+                                item.getPreparationTimeMinutes(),
+
+                                item.getSelectedAddons().stream()
+
+                                        .map(addon ->
+                                                new OrderResponse.AddonResponse(
+                                                        addon.getName(),
+                                                        addon.getPrice()
+                                                )
+                                        )
+
+                                        .toList()
+                        ))
+
+                        .toList();
+
+        return new OrderResponse(
+
+                order.getId(),
+
+                order.getOrderNumber(),
+
+                order.getRestaurantTable().getTableNumber(),
+
+                order.getStatus(),
+
+                order.getTotalAmount(),
+
+                order.getTotalPreparationWorkMinutes(),
+
+                order.getCreatedAt(),
+
+                itemResponses
+        );
+    }
+
+    // ==========================================
+    // BAD REQUEST
+    // ==========================================
+
+    private ResponseStatusException badRequest(String message) {
+
+        return new ResponseStatusException(
+                HttpStatus.BAD_REQUEST,
+                message
+        );
+    }
+}
+
+===== backend\src\main\java\com\khaidai\backend\service\PaymentService.java =====
+package com.khaidai.backend.service;
+
+import com.khaidai.backend.dto.PaymentInitiateRequest;
+import com.khaidai.backend.dto.PaymentInitiateResponse;
+import com.khaidai.backend.entity.*;
+import com.khaidai.backend.repository.OrderRepository;
+import com.khaidai.backend.repository.PaymentRepository;
+import org.springframework.util.MultiValueMap;
+import org.springframework.web.util.UriComponentsBuilder;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
+import org.springframework.util.StringUtils;
+import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientException;
+import org.springframework.web.server.ResponseStatusException;
+
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.net.URI;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.UUID;
+
+@Service
+public class PaymentService {
+
+    private static final BigDecimal MIN_AMOUNT =
+            new BigDecimal("10.00");
+
+    private static final BigDecimal MAX_AMOUNT =
+            new BigDecimal("500000.00");
+
+    private final OrderRepository orderRepository;
+    private final PaymentRepository paymentRepository;
+    private final RestClient restClient = RestClient.create();
+
+    @Value("${sslcommerz.store-id:}")
+    private String storeId;
+
+    @Value("${sslcommerz.store-password:}")
+    private String storePassword;
+
+    @Value("${sslcommerz.base-url:https://sandbox.sslcommerz.com}")
+    private String baseUrl;
+
+    @Value("${sslcommerz.callback-base-url:http://localhost:8090}")
+    private String callbackBaseUrl;
+
+    public PaymentService(
+            OrderRepository orderRepository,
+            PaymentRepository paymentRepository
+    ) {
+        this.orderRepository = orderRepository;
+        this.paymentRepository = paymentRepository;
+    }
+
+    @Transactional(noRollbackFor = ResponseStatusException.class)
+    public PaymentInitiateResponse initiatePayment(
+            PaymentInitiateRequest request
+    ) {
+
+        if (!StringUtils.hasText(storeId) ||
+                !StringUtils.hasText(storePassword)) {
+
+            throw new ResponseStatusException(
+                    HttpStatus.SERVICE_UNAVAILABLE,
+                    "SSLCommerz credentials are not configured."
+            );
+        }
+
+        RestaurantOrder order = orderRepository
+                .findByOrderNumber(request.orderNumber())
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Order not found."
+                ));
+
+        if (order.getStatus() != OrderStatus.AWAITING_PAYMENT) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "This order is not awaiting online payment."
+            );
+        }
+
+        BigDecimal amount = order.getTotalAmount()
+                .setScale(2, RoundingMode.HALF_UP);
+
+        if (amount.compareTo(MIN_AMOUNT) < 0 ||
+                amount.compareTo(MAX_AMOUNT) > 0) {
+
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Payment amount must be between BDT 10 and BDT 500,000."
+            );
+        }
+
+        // Reuse an existing pending session to avoid duplicate charges.
+        List<Payment> previousPayments =
+                paymentRepository.findAllByOrder_IdOrderByCreatedAtDesc(
+                        order.getId()
+                );
+
+        for (Payment previous : previousPayments) {
+
+            if (previous.getPaymentMethod() == PaymentMethod.SSLCOMMERZ &&
+                    previous.getStatus() == PaymentStatus.PENDING) {
+
+                if (StringUtils.hasText(previous.getGatewayPageUrl())) {
+                    return toResponse(previous);
+                }
+
+                throw new ResponseStatusException(
+                        HttpStatus.CONFLICT,
+                        "A payment session is already being created. Please try again shortly."
+                );
+            }
+        }
+
+        String transactionId =
+                "KD" + UUID.randomUUID()
+                        .toString()
+                        .replace("-", "")
+                        .substring(0, 28)
+                        .toUpperCase(Locale.ROOT);
+
+        Payment payment = new Payment();
+
+        payment.setOrder(order);
+        payment.setTransactionId(transactionId);
+        payment.setPaymentMethod(PaymentMethod.SSLCOMMERZ);
+        payment.setStatus(PaymentStatus.PENDING);
+        payment.setAmount(amount);
+        payment.setCurrency("BDT");
+
+        paymentRepository.saveAndFlush(payment);
+
+        MultiValueMap<String, String> form =
+                new LinkedMultiValueMap<>();
+
+        form.add("store_id", storeId);
+        form.add("store_passwd", storePassword);
+        form.add("total_amount", amount.toPlainString());
+        form.add("currency", "BDT");
+        form.add("tran_id", transactionId);
+
+        form.add("success_url", callbackUrl("success"));
+        form.add("fail_url", callbackUrl("fail"));
+        form.add("cancel_url", callbackUrl("cancel"));
+        form.add("ipn_url", callbackUrl("ipn"));
+
+        form.add("cus_name", request.customerName());
+        form.add("cus_email", request.customerEmail());
+        form.add("cus_phone", request.customerPhone());
+        form.add("cus_add1", request.customerAddress());
+        form.add("cus_city", request.customerCity());
+        form.add("cus_country", "Bangladesh");
+
+        if (StringUtils.hasText(request.customerPostcode())) {
+            form.add("cus_postcode", request.customerPostcode());
+        }
+
+        int itemCount = order.getItems().stream()
+                .mapToInt(item -> item.getQuantity())
+                .sum();
+
+        form.add("shipping_method", "NO");
+        form.add("product_name", "Khai-Dai Restaurant Order");
+        form.add("product_category", "food");
+        form.add("product_profile", "general");
+        form.add("num_of_item", String.valueOf(Math.max(itemCount, 1)));
+
+        form.add("value_a", order.getOrderNumber());
+        form.add("value_b", transactionId);
+
+        Map<?, ?> gatewayResponse;
+
+        try {
+
+            String apiUrl = baseUrl.replaceAll("/+$", "")
+                    + "/gwprocess/v4/api.php";
+
+            gatewayResponse = restClient.post()
+                    .uri(apiUrl)
+                    .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                    .accept(MediaType.APPLICATION_JSON)
+                    .body(form)
+                    .retrieve()
+                    .body(Map.class);
+
+        } catch (RestClientException exception) {
+
+            payment.setStatus(PaymentStatus.FAILED);
+            paymentRepository.save(payment);
+
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_GATEWAY,
+                    "Unable to connect to SSLCommerz. Please try again."
+            );
+        }
+
+        if (gatewayResponse == null) {
+            payment.setStatus(PaymentStatus.FAILED);
+            paymentRepository.save(payment);
+
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_GATEWAY,
+                    "SSLCommerz returned an empty response."
+            );
+        }
+
+        String gatewayStatus = value(gatewayResponse, "status");
+        String gatewayPageUrl = value(
+                gatewayResponse,
+                "GatewayPageURL"
+        );
+
+        String sessionKey = value(
+                gatewayResponse,
+                "sessionkey"
+        );
+
+        if (!"SUCCESS".equalsIgnoreCase(gatewayStatus) ||
+                !StringUtils.hasText(gatewayPageUrl) ||
+                !StringUtils.hasText(sessionKey) ||
+                !isTrustedGatewayUrl(gatewayPageUrl)) {
+
+            payment.setStatus(PaymentStatus.FAILED);
+            paymentRepository.save(payment);
+
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_GATEWAY,
+                    "SSLCommerz could not create a valid payment session."
+            );
+        }
+
+        payment.setGatewaySessionKey(sessionKey);
+        payment.setGatewayPageUrl(gatewayPageUrl);
+
+        paymentRepository.save(payment);
+
+        return toResponse(payment);
+    }
+
+public record CallbackResult(
+        String orderNumber,
+        PaymentStatus paymentStatus
+) {}
+
+@Transactional
+public CallbackResult handleGatewayCallback(
+        MultiValueMap<String, String> params,
+        String callbackType
+) {
+    String transactionId = params.getFirst("tran_id");
+
+    if (!StringUtils.hasText(transactionId)) {
+        throw new ResponseStatusException(
+                HttpStatus.BAD_REQUEST,
+                "Missing transaction ID."
+        );
+    }
+
+    Payment payment = paymentRepository
+            .findByTransactionId(transactionId)
+            .orElseThrow(() -> new ResponseStatusException(
+                    HttpStatus.NOT_FOUND,
+                    "Payment transaction not found."
+            ));
+
+    if (payment.getStatus() == PaymentStatus.PAID) {
+        return callbackResult(payment);
+    }
+
+    String validationId = params.getFirst("val_id");
+
+    if (StringUtils.hasText(validationId)) {
+        return validateAndApply(payment, validationId);
+    }
+
+    return queryAndApply(payment);
+}
+
+private CallbackResult validateAndApply(
+        Payment payment,
+        String validationId
+) {
+    String endpoint = baseUrl.replaceAll("/+$", "")
+            + "/validator/api/validationserverAPI.php";
+
+    URI uri = UriComponentsBuilder
+            .fromUriString(endpoint)
+            .queryParam("val_id", validationId)
+            .queryParam("store_id", storeId)
+            .queryParam("store_passwd", storePassword)
+            .queryParam("format", "json")
+            .build()
+            .encode()
+            .toUri();
+
+    Map<?, ?> result;
+
+    try {
+        result = restClient.get()
+                .uri(uri)
+                .accept(MediaType.APPLICATION_JSON)
+                .retrieve()
+                .body(Map.class);
+    } catch (RestClientException exception) {
+        throw new ResponseStatusException(
+                HttpStatus.BAD_GATEWAY,
+                "SSLCommerz validation service is unavailable."
+        );
+    }
+
+    if (result == null ||
+            !"DONE".equalsIgnoreCase(value(result, "APIConnect"))) {
+        throw new ResponseStatusException(
+                HttpStatus.BAD_GATEWAY,
+                "Unable to verify the SSLCommerz transaction."
+        );
+    }
+
+    String status = value(result, "status");
+
+    if (!"VALID".equalsIgnoreCase(status) &&
+            !"VALIDATED".equalsIgnoreCase(status)) {
+        throw new ResponseStatusException(
+                HttpStatus.BAD_REQUEST,
+                "SSLCommerz transaction is not valid."
+        );
+    }
+
+    if (!payment.getTransactionId().equals(
+            value(result, "tran_id"))) {
+        throw new ResponseStatusException(
+                HttpStatus.BAD_REQUEST,
+                "Transaction ID mismatch."
+        );
+    }
+
+if (payment.getAmount().compareTo(
+        new BigDecimal(value(result, "amount"))) != 0) {
+        throw new ResponseStatusException(
+                HttpStatus.BAD_REQUEST,
+                "Payment amount mismatch."
+        );
+    }
+
+    if (!"BDT".equalsIgnoreCase(value(result, "currency"))) {
+        throw new ResponseStatusException(
+                HttpStatus.BAD_REQUEST,
+                "Payment currency mismatch."
+        );
+    }
+
+    if (!payment.getOrder().getOrderNumber().equals(
+            value(result, "value_a")) ||
+            !payment.getTransactionId().equals(
+                    value(result, "value_b"))) {
+        throw new ResponseStatusException(
+                HttpStatus.BAD_REQUEST,
+                "Payment reference mismatch."
+        );
+    }
+
+    // Risky payments must not be automatically confirmed.
+    if (!"0".equals(value(result, "risk_level"))) {
+        return callbackResult(payment);
+    }
+
+    payment.setGatewayValidationId(
+            value(result, "val_id")
+    );
+
+    payment.setBankTransactionId(
+            value(result, "bank_tran_id")
+    );
+
+    payment.setStatus(PaymentStatus.PAID);
+
+    payment.getOrder().setStatus(OrderStatus.PENDING);
+
+    paymentRepository.save(payment);
+    orderRepository.save(payment.getOrder());
+
+    return callbackResult(payment);
+}
+
+private CallbackResult queryAndApply(Payment payment) {
+
+    String endpoint = baseUrl.replaceAll("/+$", "")
+            + "/validator/api/merchantTransIDvalidationAPI.php";
+
+    URI uri = UriComponentsBuilder
+            .fromUriString(endpoint)
+            .queryParam("tran_id", payment.getTransactionId())
+            .queryParam("store_id", storeId)
+            .queryParam("store_passwd", storePassword)
+            .queryParam("format", "json")
+            .build()
+            .encode()
+            .toUri();
+
+    Map<?, ?> response;
+
+    try {
+        response = restClient.get()
+                .uri(uri)
+                .accept(MediaType.APPLICATION_JSON)
+                .retrieve()
+                .body(Map.class);
+    } catch (RestClientException exception) {
+        throw new ResponseStatusException(
+                HttpStatus.BAD_GATEWAY,
+                "Unable to query SSLCommerz transaction."
+        );
+    }
+
+    if (response == null ||
+            !"DONE".equalsIgnoreCase(
+                    value(response, "APIConnect"))) {
+        throw new ResponseStatusException(
+                HttpStatus.BAD_GATEWAY,
+                "SSLCommerz transaction query failed."
+        );
+    }
+
+    Object elements = response.get("element");
+
+    if (elements instanceof List<?> list) {
+        for (Object element : list) {
+            if (!(element instanceof Map<?, ?> transaction)) {
+                continue;
+            }
+
+            if (!payment.getTransactionId().equals(
+                    value(transaction, "tran_id"))) {
+                continue;
+            }
+
+            String status = value(transaction, "status");
+
+            if ("VALID".equalsIgnoreCase(status) ||
+                    "VALIDATED".equalsIgnoreCase(status)) {
+
+                String validationId = value(transaction, "val_id");
+
+                if (StringUtils.hasText(validationId)) {
+                    return validateAndApply(payment, validationId);
+                }
+
+            } else if ("FAILED".equalsIgnoreCase(status)) {
+
+                payment.setStatus(PaymentStatus.FAILED);
+                paymentRepository.save(payment);
+
+            } else if ("CANCELLED".equalsIgnoreCase(status)) {
+
+                payment.setStatus(PaymentStatus.CANCELLED);
+                paymentRepository.save(payment);
+            }
+
+            break;
+        }
+    }
+
+    return callbackResult(payment);
+}
+
+private CallbackResult callbackResult(Payment payment) {
+    return new CallbackResult(
+            payment.getOrder().getOrderNumber(),
+            payment.getStatus()
+    );
+}
+
+
+    private String callbackUrl(String action) {
+        return callbackBaseUrl.replaceAll("/+$", "")
+                + "/api/payments/callback/" + action;
+    }
+
+    private boolean isTrustedGatewayUrl(String gatewayPageUrl) {
+        try {
+            URI gatewayUri = URI.create(gatewayPageUrl);
+            URI configuredUri = URI.create(baseUrl);
+
+            return "https".equalsIgnoreCase(gatewayUri.getScheme())
+                    && configuredUri.getHost() != null
+                    && configuredUri.getHost().equalsIgnoreCase(
+                            gatewayUri.getHost()
+                    );
+
+        } catch (IllegalArgumentException exception) {
+            return false;
+        }
+    }
+
+    private String value(Map<?, ?> response, String key) {
+        Object result = response.get(key);
+        return result == null ? "" : result.toString();
+    }
+
+    private PaymentInitiateResponse toResponse(Payment payment) {
+        return new PaymentInitiateResponse(
+                payment.getTransactionId(),
+                payment.getAmount(),
+                payment.getCurrency(),
+                payment.getGatewayPageUrl(),
+                payment.getStatus()
+        );
+    }
+}
+
+===== backend\src\main\java\com\khaidai\backend\service\TableAdminService.java =====
+
+package com.khaidai.backend.service;
+
+import com.khaidai.backend.dto.TableQrAdminResponse;
+import com.khaidai.backend.repository.TableRepository;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
+
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.util.List;
+
+@Service
+public class TableAdminService {
+
+    private final TableRepository tableRepository;
+
+    @Value("${khaidai.admin.api-key:}")
+    private String configuredAdminKey;
+
+    public TableAdminService(TableRepository tableRepository) {
+        this.tableRepository = tableRepository;
+    }
+
+    public List<TableQrAdminResponse> getAllQrCodes(
+            String providedAdminKey
+    ) {
+
+        validateAdminKey(providedAdminKey);
+
+        return tableRepository
+                .findAllByOrderByTableNumberAsc()
+                .stream()
+                .map(table -> new TableQrAdminResponse(
+                        table.getId(),
+                        table.getTableNumber(),
+                        table.getQrToken(),
+                        table.isActive()
+                ))
+                .toList();
+    }
+
+    private void validateAdminKey(String providedAdminKey) {
+
+        if (configuredAdminKey == null ||
+                configuredAdminKey.isBlank()) {
+
+            throw new ResponseStatusException(
+                    HttpStatus.SERVICE_UNAVAILABLE,
+                    "Admin API key is not configured."
+            );
+        }
+
+        if (providedAdminKey == null ||
+                !MessageDigest.isEqual(
+                        configuredAdminKey.getBytes(
+                                StandardCharsets.UTF_8
+                        ),
+                        providedAdminKey.getBytes(
+                                StandardCharsets.UTF_8
+                        )
+                )) {
+
+            throw new ResponseStatusException(
+                    HttpStatus.UNAUTHORIZED,
+                    "Invalid admin API key."
+            );
+        }
+    }
+}
+
+
+===== backend\src\main\java\com\khaidai\backend\service\TableDataInitializer.java =====
+
+package com.khaidai.backend.service;
+
+import com.khaidai.backend.entity.RestaurantTable;
+import com.khaidai.backend.repository.TableRepository;
+
+import org.springframework.boot.ApplicationArguments;
+import org.springframework.boot.ApplicationRunner;
+import org.springframework.stereotype.Component;
+
+import java.security.SecureRandom;
+import java.util.Base64;
+
+@Component
+public class TableDataInitializer implements ApplicationRunner {
+
+    private final TableRepository tableRepository;
+
+    private static final SecureRandom SECURE_RANDOM =
+            new SecureRandom();
+
+    public TableDataInitializer(
+            TableRepository tableRepository
+    ) {
+        this.tableRepository = tableRepository;
+    }
+
+    @Override
+    public void run(ApplicationArguments args) {
+
+        System.out.println(
+                "Checking Khai-Dai restaurant tables..."
+        );
+
+        for (int tableNumber = 1; tableNumber <= 8; tableNumber++) {
+
+            if (!tableRepository.existsByTableNumber(tableNumber)) {
+
+                String token = generateSecureToken();
+
+                RestaurantTable table = new RestaurantTable(
+                        tableNumber,
+                        token
+                );
+
+                tableRepository.save(table);
+
+                System.out.println(
+                        "Created restaurant table: " + tableNumber
+                );
+            }
+        }
+
+        System.out.println(
+                "Khai-Dai table initialization completed."
+        );
+    }
+
+    // Generate a cryptographically secure random token
+    private String generateSecureToken() {
+
+        byte[] randomBytes = new byte[32];
+
+        SECURE_RANDOM.nextBytes(randomBytes);
+
+        return Base64.getUrlEncoder()
+                .withoutPadding()
+                .encodeToString(randomBytes);
+    }
+}
+
+
+===== backend\src\main\java\com\khaidai\backend\service\TableService.java =====
+
+package com.khaidai.backend.service;
+
+import com.khaidai.backend.dto.TableResponse;
+import com.khaidai.backend.dto.TableValidationResponse;
+import com.khaidai.backend.entity.RestaurantTable;
+import com.khaidai.backend.repository.TableRepository;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
+
+import java.util.List;
+
+@Service
+public class TableService {
+
+    private final TableRepository tableRepository;
+
+    public TableService(TableRepository tableRepository) {
+        this.tableRepository = tableRepository;
+    }
+
+    // Get all restaurant tables
+    public List<TableResponse> getAllTables() {
+
+        return tableRepository.findAllByOrderByTableNumberAsc()
+                .stream()
+                .map(table -> new TableResponse(
+                        table.getId(),
+                        table.getTableNumber(),
+                        table.isActive()
+                ))
+                .toList();
+    }
+
+    // Validate QR token
+    public TableValidationResponse validateQrToken(String token) {
+
+        RestaurantTable table = tableRepository
+                .findByQrTokenAndActiveTrue(token)
+                .orElseThrow(() ->
+                        new ResponseStatusException(
+                                HttpStatus.NOT_FOUND,
+                                "Invalid or inactive table QR code."
+                        )
+                );
+
+        return new TableValidationResponse(
+                true,
+                table.getTableNumber(),
+                "Table verified successfully."
+        );
+    }
+}
+
+
+========== FRONTEND SOURCE ==========
+
+===== frontend\src\AdminQrPage.tsx =====
+
+import { useState, type FormEvent } from "react";
+import { QRCodeSVG } from "qrcode.react";
+import "./App.css";
+
+type AdminTable = {
+  id: number;
+  tableNumber: number;
+  qrToken: string;
+  active: boolean;
+};
+
+const API_BASE_URL =
+  `${window.location.protocol}//${window.location.hostname}:8090`;
+
+export default function AdminQrPage() {
+  const [adminKey, setAdminKey] = useState("");
+  const [tables, setTables] = useState<AdminTable[]>([]);
+  const [menuBaseUrl, setMenuBaseUrl] = useState(
+    window.location.origin
+  );
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [loaded, setLoaded] = useState(false);
+
+  // Load QR information from the protected backend API
+  const loadQrCodes = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (!adminKey.trim()) {
+      setError("Please enter your administrator key.");
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+    setLoaded(false);
+
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/admin/tables/qr`,
+        {
+          method: "GET",
+          headers: {
+            "X-Admin-Key": adminKey.trim(),
+          },
+        }
+      );
+
+      if (response.status === 401) {
+        throw new Error("Incorrect administrator key.");
+      }
+
+      if (response.status === 503) {
+        throw new Error("Admin security is not configured.");
+      }
+
+      if (!response.ok) {
+        throw new Error(`Server error: ${response.status}`);
+      }
+
+      const data: AdminTable[] = await response.json();
+
+      if (!Array.isArray(data) || data.length !== 8) {
+        throw new Error(
+          `Expected 8 tables but received ${data.length}.`
+        );
+      }
+
+      setTables(data);
+      setLoaded(true);
+
+    } catch (err) {
+      setTables([]);
+
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Unable to retrieve QR codes."
+      );
+
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Generate the customer menu URL for each table
+  const getMenuUrl = (token: string): string => {
+    try {
+      const url = new URL("/", menuBaseUrl.trim());
+
+      if (
+        url.protocol !== "http:" &&
+        url.protocol !== "https:"
+      ) {
+        return "";
+      }
+
+      url.searchParams.set("tableToken", token);
+
+      return url.toString();
+
+    } catch {
+      return "";
+    }
+  };
+
+  // Print all eight table cards
+  const printQrCodes = () => {
+    if (tables.length === 8) {
+      window.print();
+    }
+  };
+
+  // Lock the dashboard
+  const logout = () => {
+    setAdminKey("");
+    setTables([]);
+    setLoaded(false);
+    setError("");
+  };
+
+  return (
+    <main className="qr-admin-page">
+
+      <header className="qr-admin-header">
+        <div>
+          <span className="eyebrow">
+            KHAI-DAI MANAGEMENT
+          </span>
+
+          <h1>QR Code Management</h1>
+
+          <p>
+            Manage your restaurant's eight table QR codes.
+          </p>
+        </div>
+
+        <a href="/" className="qr-back-link">
+          ← Back to restaurant
+        </a>
+      </header>
+
+      {/* ADMIN LOGIN */}
+
+      <section className="qr-admin-access">
+        <h2>Administrator access</h2>
+
+        <p>
+          Enter your private administrator key to access
+          the restaurant QR codes.
+        </p>
+
+        <form
+          className="qr-admin-form"
+          onSubmit={loadQrCodes}
+        >
+          <input
+            type="password"
+            value={adminKey}
+            onChange={(event) =>
+              setAdminKey(event.target.value)
+            }
+            placeholder="Enter admin key"
+            autoComplete="off"
+            required
+          />
+
+          <button type="submit" disabled={loading}>
+            {loading ? "Loading..." : "Load QR Codes"}
+          </button>
+        </form>
+
+        {error && (
+          <div className="qr-error">
+            {error}
+          </div>
+        )}
+
+        {loaded && (
+          <div className="qr-success">
+            ✓ Authentication successful. Eight tables loaded.
+          </div>
+        )}
+      </section>
+
+      {/* QR MANAGEMENT */}
+
+      {loaded && (
+        <>
+          <section className="qr-settings">
+            <h2>Customer menu address</h2>
+
+            <p>
+              Customers will open this address after
+              scanning their table QR code.
+            </p>
+
+            <input
+              type="url"
+              value={menuBaseUrl}
+              onChange={(event) =>
+                setMenuBaseUrl(event.target.value)
+              }
+              placeholder="http://localhost:5173"
+            />
+
+            <small>
+              For phone testing, use your computer's
+              local network IP instead of localhost.
+            </small>
+          </section>
+
+          <section className="qr-management-heading">
+            <div>
+              <span className="eyebrow">
+                RESTAURANT TABLES
+              </span>
+
+              <h2>Your eight QR codes</h2>
+
+              <p>
+                Each QR code identifies one specific table.
+              </p>
+            </div>
+
+            <div className="qr-management-actions">
+              <button
+                className="qr-print-button"
+                onClick={printQrCodes}
+              >
+                🖨 Print all QR codes
+              </button>
+
+              <button
+                className="qr-logout-button"
+                onClick={logout}
+              >
+                Lock dashboard
+              </button>
+            </div>
+          </section>
+
+          <div className="qr-card-grid">
+            {tables.map((table) => {
+              const menuUrl = getMenuUrl(table.qrToken);
+
+              return (
+                <article
+                  className="qr-table-card"
+                  key={table.id}
+                >
+                  <div className="qr-card-top">
+                    <span className="qr-table-label">
+                      KHAI-DAI
+                    </span>
+
+                    <span
+                      className={
+                        table.active
+                          ? "qr-active"
+                          : "qr-inactive"
+                      }
+                    >
+                      {table.active ? "Active" : "Inactive"}
+                    </span>
+                  </div>
+
+                  <h3>Table {table.tableNumber}</h3>
+
+                  <p className="qr-table-id">
+                    TABLE-
+                    {String(table.tableNumber).padStart(2, "0")}
+                  </p>
+
+                  <div className="qr-code-container">
+                    {menuUrl ? (
+                      <QRCodeSVG
+                        value={menuUrl}
+                        size={190}
+                        level="H"
+                        includeMargin
+                      />
+                    ) : (
+                      <p className="qr-error">
+                        Enter a valid menu address.
+                      </p>
+                    )}
+                  </div>
+
+                  <p className="qr-scan-instruction">
+                    Scan to view our menu and order.
+                  </p>
+
+                  <div className="qr-card-footer">
+                    Fresh food. Made for you.
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+
+          <section className="qr-print-note">
+            <strong>Printing instructions</strong>
+
+            <p>
+              Print on A4 paper, cut out the eight cards,
+              and place one QR code on each restaurant table.
+            </p>
+          </section>
+        </>
+      )}
+
+      <footer className="qr-admin-footer">
+        Khai-Dai Restaurant Management System
+      </footer>
+    </main>
+  );
+}
+
+
+===== frontend\src\App.css =====
+
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Playfair+Display:wght@600;700;800&display=swap');
+
+/* ==========================================
+   GLOBAL
+========================================== */
+
+#root {
+  width: 100%;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+.app {
+  min-height: 100vh;
+  background: #faf9f5;
+  color: #193b2d;
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+img {
+  display: block;
+  max-width: 100%;
+}
+
+/* ==========================================
+   NAVBAR
+========================================== */
+
+.navbar {
+  min-height: 82px;
+  padding: 0 8%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #faf9f5;
+  border-bottom: 1px solid #eae9e2;
+}
+
+.logo {
+  font-family: 'Playfair Display', serif;
+  font-size: 30px;
+  font-weight: 800;
+  color: #193b2d;
+  text-decoration: none;
+}
+
+.logo > span:first-child,
+.logo-dot {
+  color: #e77b39;
+}
+
+.nav-links {
+  display: flex;
+  gap: 35px;
+}
+
+.nav-links a {
+  text-decoration: none;
+  color: #5f6c62;
+  font-size: 14px;
+  font-weight: 600;
+  transition: color 0.2s;
+}
+
+.nav-links a:hover {
+  color: #e77b39;
+}
+
+.cart-button {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 11px 17px;
+  border: 1px solid #dfe5dc;
+  border-radius: 30px;
+  background: white;
+  color: #193b2d;
+  font-weight: 700;
+}
+
+.cart-count {
+  background: #e77b39;
+  color: white;
+  border-radius: 50%;
+  width: 23px;
+  height: 23px;
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+}
+
+/* ==========================================
+   HERO SECTION
+========================================== */
+
+.hero {
+  padding: 75px 8%;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: center;
+  gap: 55px;
+}
+
+.hero-content {
+  max-width: 570px;
+}
+
+.eyebrow {
+  display: inline-block;
+  color: #df783b;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 2.2px;
+}
+
+.hero h1 {
+  font-family: 'Playfair Display', serif;
+  font-size: clamp(42px, 5vw, 68px);
+  line-height: 1.12;
+  margin: 22px 0;
+  letter-spacing: -1.5px;
+}
+
+.hero h1 span {
+  color: #e77b39;
+}
+
+.hero-content > p {
+  color: #778178;
+  font-size: 16px;
+  line-height: 1.9;
+  max-width: 450px;
+}
+
+.primary-button {
+  margin-top: 22px;
+  padding: 15px 25px;
+  border: 0;
+  border-radius: 7px;
+  background: #193b2d;
+  color: white;
+  font-size: 14px;
+  font-weight: 700;
+  transition: 0.2s;
+}
+
+.primary-button:hover {
+  background: #e77b39;
+  transform: translateY(-2px);
+}
+
+.primary-button span {
+  margin-left: 15px;
+}
+
+.hero-note {
+  margin-top: 28px;
+  font-size: 13px;
+  color: #778178;
+}
+
+.hero-note span {
+  color: #e77b39;
+  margin-right: 7px;
+}
+
+.hero-image {
+  height: 390px;
+  position: relative;
+}
+
+.hero-image > img {
+  height: 100%;
+  width: 100%;
+  object-fit: cover;
+  border-radius: 12px;
+}
+
+.floating-card {
+  position: absolute;
+  bottom: 22px;
+  left: -25px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: white;
+  padding: 15px 20px;
+  border-radius: 10px;
+  box-shadow: 0 10px 35px #193b2d18;
+}
+
+.floating-card > span {
+  font-size: 27px;
+}
+
+.floating-card strong,
+.floating-card small {
+  display: block;
+}
+
+.floating-card small {
+  color: #889087;
+  margin-top: 4px;
+}
+
+/* ==========================================
+   MENU SECTION
+========================================== */
+
+.menu-section {
+  padding: 85px 8%;
+  background: white;
+}
+
+.section-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: end;
+  gap: 25px;
+}
+
+.section-heading h2,
+.about-section h2 {
+  font-family: 'Playfair Display', serif;
+  font-size: clamp(30px, 4vw, 42px);
+  margin: 12px 0;
+}
+
+.section-heading h2 span {
+  color: #e77b39;
+}
+
+.section-heading p {
+  color: #879087;
+  margin: 0;
+}
+
+.search-box {
+  width: 290px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid #e8e9e4;
+  border-radius: 7px;
+  padding: 12px 15px;
+}
+
+.search-box span {
+  font-size: 23px;
+  color: #89938b;
+}
+
+.search-box input {
+  width: 100%;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 13px;
+}
+
+.category-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 35px 0;
+}
+
+.category-button {
+  border: 1px solid #e8e9e4;
+  border-radius: 30px;
+  padding: 11px 20px;
+  background: white;
+  color: #69766c;
+  font-weight: 600;
+  transition: 0.2s;
+}
+
+.category-button:hover,
+.category-button.active {
+  background: #193b2d;
+  border-color: #193b2d;
+  color: white;
+}
+
+/* ==========================================
+   FOOD CARDS
+========================================== */
+
+.food-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 25px;
+}
+
+.food-card {
+  border: 1px solid #eeeee8;
+  border-radius: 10px;
+  overflow: hidden;
+  background: white;
+  transition: transform 0.25s, box-shadow 0.25s;
+}
+
+.food-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 12px 30px #193b2d12;
+}
+
+.food-image {
+  height: 210px;
+  position: relative;
+}
+
+.food-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.food-time {
+  position: absolute;
+  top: 13px;
+  right: 13px;
+  background: white;
+  color: #193b2d;
+  padding: 7px 11px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.food-info {
+  padding: 20px;
+}
+
+.food-category {
+  color: #e77b39;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.food-info h3 {
+  font-family: 'Playfair Display', serif;
+  font-size: 21px;
+  margin: 10px 0;
+}
+
+.food-info > p {
+  color: #899087;
+  font-size: 13px;
+  line-height: 1.7;
+  min-height: 44px;
+}
+
+.food-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 18px 0;
+  font-size: 13px;
+}
+
+.food-meta > span {
+  color: #798479;
+}
+
+.food-meta strong {
+  color: #193b2d;
+  font-size: 20px;
+}
+
+/* Food buttons */
+
+.details-button,
+.add-button {
+  width: 100%;
+  padding: 12px;
+  border-radius: 6px;
+  font-weight: 700;
+  transition: 0.2s;
+}
+
+.details-button {
+  margin-bottom: 9px;
+  border: 1px solid #e8e9e4;
+  background: #faf9f5;
+  color: #193b2d;
+  font-size: 13px;
+}
+
+.details-button:hover {
+  border-color: #e77b39;
+  color: #e77b39;
+}
+
+.add-button {
+  border: 1px solid #193b2d;
+  background: white;
+  color: #193b2d;
+}
+
+.add-button:hover {
+  background: #193b2d;
+  color: white;
+}
+
+/* Empty search */
+
+.empty-state {
+  text-align: center;
+  padding: 50px 20px;
+}
+
+.empty-state span {
+  font-size: 42px;
+}
+
+.empty-state p {
+  color: #899087;
+}
+
+/* ==========================================
+   ABOUT SECTION
+========================================== */
+
+.about-section {
+  padding: 75px 8%;
+  text-align: center;
+}
+
+.about-section h2 {
+  max-width: 600px;
+  margin: 15px auto;
+}
+
+.about-section p {
+  max-width: 550px;
+  margin: auto;
+  color: #778178;
+  line-height: 1.8;
+}
+
+/* ==========================================
+   FOOTER
+========================================== */
+
+.footer {
+  padding: 35px 8%;
+  background: #193b2d;
+  color: white;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 15px;
+}
+
+.footer .logo {
+  color: white;
+}
+
+.footer p,
+.footer small {
+  font-size: 12px;
+  color: #c2d0c5;
+}
+
+/* ==========================================
+   MODAL BACKDROP
+========================================== */
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(12, 28, 20, 0.7);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+  overflow-y: auto;
+}
+
+/* ==========================================
+   FOOD DETAILS MODAL
+========================================== */
+
+.food-modal {
+  position: relative;
+  background: #fff;
+  width: 100%;
+  max-width: 620px;
+  max-height: 90vh;
+  overflow-y: auto;
+  border-radius: 13px;
+  box-shadow: 0 20px 70px #0003;
+}
+
+.modal-close {
+  position: absolute;
+  z-index: 2;
+  top: 12px;
+  right: 12px;
+  width: 38px;
+  height: 38px;
+  border: none;
+  border-radius: 50%;
+  background: white;
+  color: #193b2d;
+  font-size: 26px;
+  cursor: pointer;
+  box-shadow: 0 3px 12px #0002;
+}
+
+.modal-close:hover {
+  background: #f4eee6;
+}
+
+.modal-food-image {
+  width: 100%;
+  height: 250px;
+  object-fit: cover;
+}
+
+.modal-content {
+  padding: 27px;
+}
+
+.modal-content h2 {
+  font-family: 'Playfair Display', serif;
+  font-size: 30px;
+  margin: 10px 0;
+}
+
+.modal-content > p {
+  color: #778178;
+  line-height: 1.7;
+  font-size: 14px;
+}
+
+/* ==========================================
+   FOOD DETAILS GRID
+========================================== */
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin: 25px 0;
+}
+
+.detail-item {
+  background: #faf9f5;
+  padding: 15px;
+  border-radius: 8px;
+}
+
+.detail-item span,
+.detail-item strong {
+  display: block;
+}
+
+.detail-item span {
+  color: #899087;
+  font-size: 12px;
+  margin-bottom: 8px;
+}
+
+.detail-item strong {
+  color: #193b2d;
+  font-size: 14px;
+}
+
+/* ==========================================
+   SPICE LEVEL SELECTOR
+========================================== */
+
+.spice-selector {
+  padding: 20px;
+  background: #faf9f5;
+  border: 1px solid #e9e9df;
+  border-radius: 10px;
+  margin: 25px 0;
+}
+
+.spice-selector h3 {
+  font-size: 17px;
+  color: #193b2d;
+  margin-bottom: 7px;
+}
+
+.spice-selector > div:first-child p {
+  color: #899087;
+  font-size: 13px;
+  margin-bottom: 18px;
+}
+
+.spice-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.spice-option {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 14px 8px;
+  border: 1px solid #e1e5dc;
+  border-radius: 8px;
+  background: white;
+  color: #193b2d;
+  font-size: 13px;
+  font-weight: 700;
+  transition: 0.2s;
+}
+
+.spice-option:hover {
+  border-color: #e77b39;
+}
+
+.spice-option.active {
+  border: 2px solid #e77b39;
+  background: #fff5ed;
+  color: #b85d27;
+}
+
+.spice-option span {
+  font-size: 13px;
+}
+
+.spice-note {
+  margin-top: 15px;
+  font-size: 13px;
+  color: #778178;
+}
+
+.spice-note strong {
+  color: #193b2d;
+}
+
+/* ==========================================
+   INGREDIENTS AND ALLERGENS
+========================================== */
+
+.detail-list {
+  margin: 25px 0;
+}
+
+.detail-list h3 {
+  font-size: 16px;
+  margin-bottom: 13px;
+}
+
+.detail-list ul {
+  padding-left: 22px;
+  color: #69766c;
+  line-height: 2;
+  font-size: 14px;
+}
+
+.allergen-section {
+  background: #fff8ed;
+  border-radius: 8px;
+  padding: 17px;
+}
+
+.demo-warning {
+  font-size: 12px !important;
+  color: #a15b26 !important;
+  background: #fff8ed;
+  padding: 12px;
+  border-radius: 6px;
+}
+
+/* ==========================================
+   COMMON MODAL ADD BUTTON
+========================================== */
+
+.modal-add-button {
+  width: 100%;
+  padding: 15px;
+  background: #193b2d;
+  color: white;
+  border: none;
+  border-radius: 7px;
+  font-weight: 700;
+  cursor: pointer;
+  margin-top: 12px;
+  transition: 0.2s;
+}
+
+.modal-add-button:hover {
+  background: #e77b39;
+}
+
+/* ==========================================
+   SHOPPING CART MODAL
+========================================== */
+
+.cart-modal {
+  position: relative;
+  background: #fff;
+  width: 100%;
+  max-width: 580px;
+  max-height: 90vh;
+  overflow-y: auto;
+  border-radius: 13px;
+  padding: 28px;
+  box-shadow: 0 20px 70px #0003;
+}
+
+.cart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 22px;
+  border-bottom: 1px solid #eeeee8;
+}
+
+.cart-header h2 {
+  font-family: 'Playfair Display', serif;
+  font-size: 30px;
+  margin-top: 8px;
+}
+
+.cart-items {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Individual cart item */
+
+.cart-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 15px;
+  padding: 20px 0;
+  border-bottom: 1px solid #eeeee8;
+}
+
+.cart-item > img {
+  width: 85px;
+  height: 85px;
+  object-fit: cover;
+  border-radius: 9px;
+  flex-shrink: 0;
+}
+
+.cart-item-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.cart-item-info h3 {
+  font-family: 'Playfair Display', serif;
+  font-size: 17px;
+  margin-bottom: 7px;
+}
+
+.cart-item-info > strong {
+  color: #e77b39;
+  font-size: 15px;
+}
+
+/* Spice level in cart */
+
+.cart-spice-label {
+  font-size: 12px;
+  color: #778178;
+  margin-top: 7px;
+}
+
+.cart-spice-control {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-top: 9px;
+}
+
+.cart-spice-control span {
+  font-size: 11px;
+  color: #778178;
+}
+
+.cart-spice-control select {
+  border: 1px solid #dfe5dc;
+  border-radius: 5px;
+  background: #faf9f5;
+  color: #193b2d;
+  padding: 5px 8px;
+  font-size: 11px;
+  outline: none;
+}
+
+.cart-spice-control select:focus {
+  border-color: #e77b39;
+}
+
+/* Quantity controls */
+
+.quantity-controls {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  margin-top: 10px;
+}
+
+.quantity-controls button {
+  width: 29px;
+  height: 29px;
+  border: 1px solid #dfe5dc;
+  border-radius: 6px;
+  background: #faf9f5;
+  color: #193b2d;
+  font-size: 18px;
+  transition: 0.2s;
+}
+
+.quantity-controls button:hover {
+  background: #193b2d;
+  color: white;
+}
+
+.quantity-controls span {
+  font-size: 14px;
+  font-weight: 700;
+  min-width: 15px;
+  text-align: center;
+}
+
+/* Remove item */
+
+.remove-item {
+  width: 30px;
+  height: 30px;
+  border: none;
+  background: transparent;
+  color: #d45d4c;
+  font-size: 23px;
+  flex-shrink: 0;
+}
+
+.remove-item:hover {
+  color: #a92727;
+}
+
+/* Cart summary */
+
+.cart-summary {
+  margin-top: 20px;
+  padding: 20px;
+  background: #faf9f5;
+  border-radius: 9px;
+}
+
+.cart-summary > div {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 15px;
+  font-size: 14px;
+  gap: 15px;
+}
+
+.cart-summary > div:last-child {
+  margin-bottom: 0;
+}
+
+.cart-summary span {
+  color: #778178;
+}
+
+.cart-summary strong {
+  color: #193b2d;
+}
+
+.cart-summary .cart-total {
+  border-top: 1px solid #e5e7df;
+  padding-top: 16px;
+  margin-top: 8px;
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.cart-total strong {
+  color: #e77b39;
+  font-size: 22px;
+}
+
+/* Cart note */
+
+.cart-note {
+  color: #899087;
+  font-size: 12px;
+  line-height: 1.7;
+  margin: 15px 0;
+}
+
+/* Empty cart */
+
+.empty-cart {
+  text-align: center;
+  padding: 45px 15px 20px;
+}
+
+.empty-cart > span {
+  font-size: 55px;
+}
+
+.empty-cart h3 {
+  font-family: 'Playfair Display', serif;
+  font-size: 23px;
+  margin: 15px 0 8px;
+}
+
+.empty-cart p {
+  color: #899087;
+  font-size: 13px;
+  margin-bottom: 15px;
+}
+
+/* ==========================================
+   TABLET RESPONSIVE
+========================================== */
+
+@media (max-width: 900px) {
+  .hero {
+    gap: 30px;
+    padding-top: 55px;
+  }
+
+  .food-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* ==========================================
+   MOBILE RESPONSIVE
+========================================== */
+
+@media (max-width: 650px) {
+  .navbar {
+    height: auto;
+    min-height: 75px;
+    padding: 15px 5%;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .logo {
+    font-size: 25px;
+  }
+
+  .nav-links {
+    order: 3;
+    width: 100%;
+    justify-content: center;
+    gap: 25px;
+  }
+
+  .nav-links a {
+    font-size: 12px;
+  }
+
+  .cart-button {
+    padding: 9px 12px;
+    font-size: 12px;
+  }
+
+  .hero {
+    grid-template-columns: 1fr;
+    padding: 55px 6%;
+  }
+
+  .hero-image {
+    height: 280px;
+    margin-left: 15px;
+  }
+
+  .menu-section {
+    padding: 60px 6%;
+  }
+
+  .section-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .search-box {
+    width: 100%;
+  }
+
+  .food-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .food-image {
+    height: 230px;
+  }
+
+  .about-section {
+    padding: 60px 6%;
+  }
+
+  .footer {
+    padding: 30px 6%;
+    flex-direction: column;
+    text-align: center;
+  }
+}
+
+/* ==========================================
+   SMALL MOBILE MODALS
+========================================== */
+
+@media (max-width: 500px) {
+  .modal-backdrop {
+    padding: 10px;
+  }
+
+  .food-modal {
+    max-height: 94vh;
+  }
+
+  .modal-food-image {
+    height: 190px;
+  }
+
+  .modal-content {
+    padding: 20px;
+  }
+
+  .modal-content h2 {
+    font-size: 25px;
+  }
+
+  .detail-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .cart-modal {
+    padding: 20px;
+    max-height: 94vh;
+  }
+
+  .cart-item {
+    gap: 10px;
+  }
+
+  .cart-item > img {
+    width: 68px;
+    height: 68px;
+  }
+
+  .cart-item-info h3 {
+    font-size: 14px;
+  }
+
+  .spice-options {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+
+/* ==========================================
+   FOOD ADD-ON CUSTOMIZATION
+========================================== */
+
+.addon-selector {
+  padding: 20px;
+  background: #faf9f5;
+  border: 1px solid #e9e9df;
+  border-radius: 10px;
+  margin: 25px 0;
+}
+
+.addon-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.addon-heading h3 {
+  color: #193b2d;
+  font-size: 17px;
+  margin-bottom: 7px;
+}
+
+.addon-heading p {
+  color: #899087;
+  font-size: 13px;
+}
+
+.optional-label {
+  background: #e8f0e8;
+  color: #38664b;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  padding: 7px 10px;
+  border-radius: 20px;
+  white-space: nowrap;
+}
+
+.addon-options {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.addon-option {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 13px;
+  border: 1px solid #e1e5dc;
+  border-radius: 8px;
+  background: white;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.addon-option:hover {
+  border-color: #e77b39;
+}
+
+.addon-option.selected {
+  border-color: #e77b39;
+  background: #fff7f0;
+}
+
+.addon-option input {
+  width: 18px;
+  height: 18px;
+  accent-color: #193b2d;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.addon-option-info {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.addon-name {
+  color: #193b2d;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.addon-price {
+  color: #e77b39;
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.addon-total {
+  display: flex;
+  justify-content: space-between;
+  border-top: 1px solid #e1e5dc;
+  padding-top: 15px;
+  margin-top: 17px;
+  font-size: 14px;
+}
+
+.addon-total span {
+  color: #778178;
+}
+
+.addon-total strong {
+  color: #193b2d;
+}
+
+/* Customized food price */
+
+.customized-price {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 17px;
+  margin-top: 18px;
+  background: #f0f4ed;
+  border-radius: 8px;
+}
+
+.customized-price span {
+  color: #69766c;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.customized-price strong {
+  color: #193b2d;
+  font-size: 23px;
+  font-weight: 800;
+}
+
+/* ==========================================
+   CART ADD-ON INFORMATION
+========================================== */
+
+.cart-addon-list {
+  margin-top: 10px;
+  padding: 9px 11px;
+  background: #faf9f5;
+  border-radius: 6px;
+}
+
+.cart-addon-list > span {
+  display: block;
+  color: #778178;
+  font-size: 11px;
+  font-weight: 700;
+  margin-bottom: 5px;
+}
+
+.cart-addon-list p {
+  color: #69766c;
+  font-size: 11px;
+  line-height: 1.7;
+}
+
+/* Mobile add-on layout */
+
+@media (max-width: 500px) {
+  .addon-selector {
+    padding: 15px;
+  }
+
+  .addon-heading h3 {
+    font-size: 15px;
+  }
+
+  .addon-option {
+    padding: 11px;
+  }
+
+  .addon-name,
+  .addon-price {
+    font-size: 12px;
+  }
+
+  .customized-price {
+    padding: 14px;
+  }
+}
+
+/* ==========================================
+   KHAI-DAI QR MANAGEMENT
+========================================== */
+
+.qr-admin-page {
+  min-height: 100vh;
+  padding: 45px 7%;
+  background: #faf9f5;
+  color: #193b2d;
+}
+
+.qr-admin-header,
+.qr-management-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  margin-bottom: 30px;
+}
+
+.qr-admin-header h1 {
+  font-size: 38px;
+  margin: 12px 0;
+  font-family: 'Playfair Display', serif;
+}
+
+.qr-admin-page p {
+  color: #899087;
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.qr-back-link {
+  color: #193b2d;
+  text-decoration: none;
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.qr-admin-access,
+.qr-settings,
+.qr-print-note {
+  background: white;
+  border: 1px solid #e9e9e2;
+  border-radius: 12px;
+  padding: 25px;
+  margin-bottom: 30px;
+  max-width: 750px;
+}
+
+.qr-admin-access h2,
+.qr-settings h2 {
+  font-family: 'Playfair Display', serif;
+  font-size: 22px;
+  margin-bottom: 10px;
+}
+
+.qr-admin-form {
+  display: flex;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.qr-admin-form input,
+.qr-settings input {
+  min-width: 0;
+  flex: 1;
+  padding: 13px;
+  border: 1px solid #e1e5dc;
+  border-radius: 7px;
+  outline: none;
+  color: #193b2d;
+}
+
+.qr-admin-form input:focus,
+.qr-settings input:focus {
+  border-color: #e77b39;
+}
+
+.qr-admin-form button {
+  background: #193b2d;
+  color: white;
+  border: none;
+  padding: 12px 20px;
+  border-radius: 7px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.qr-admin-form button:disabled {
+  opacity: 0.6;
+}
+
+.qr-settings input {
+  width: 100%;
+  margin: 12px 0;
+}
+
+.qr-settings small {
+  color: #899087;
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.qr-error,
+.qr-success {
+  padding: 12px;
+  margin-top: 15px;
+  border-radius: 7px;
+  font-size: 13px;
+}
+
+.qr-error {
+  color: #b43f35;
+  background: #fff0ee;
+}
+
+.qr-success {
+  color: #28683b;
+  background: #edf6ed;
+}
+
+.qr-management-heading {
+  align-items: flex-end;
+}
+
+.qr-management-heading h2 {
+  font-family: 'Playfair Display', serif;
+  font-size: 30px;
+  margin: 10px 0;
+}
+
+.qr-management-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.qr-print-button,
+.qr-logout-button {
+  padding: 12px 16px;
+  border-radius: 7px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.qr-print-button {
+  background: #193b2d;
+  color: white;
+  border: 1px solid #193b2d;
+}
+
+.qr-logout-button {
+  background: white;
+  color: #193b2d;
+  border: 1px solid #dfe5dc;
+}
+
+.qr-card-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 20px;
+}
+
+.qr-table-card {
+  background: white;
+  border: 1px solid #e9e9e2;
+  border-radius: 12px;
+  padding: 20px;
+  text-align: center;
+  box-shadow: 0 5px 20px #193b2d08;
+  break-inside: avoid;
+}
+
+.qr-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.qr-table-label {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 1.5px;
+}
+
+.qr-active,
+.qr-inactive {
+  font-size: 10px;
+  padding: 5px 9px;
+  border-radius: 20px;
+  font-weight: 700;
+}
+
+.qr-active {
+  background: #eaf4eb;
+  color: #34734a;
+}
+
+.qr-inactive {
+  background: #fff0ee;
+  color: #b43f35;
+}
+
+.qr-table-card h3 {
+  font-family: 'Playfair Display', serif;
+  font-size: 25px;
+  margin: 20px 0 5px;
+}
+
+.qr-table-id {
+  font-size: 11px;
+  letter-spacing: 1px;
+}
+
+.qr-code-container {
+  min-height: 205px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 15px auto;
+}
+
+.qr-code-container svg {
+  max-width: 100%;
+  height: auto;
+}
+
+.qr-scan-instruction {
+  font-size: 12px;
+  margin-bottom: 18px;
+}
+
+.qr-card-footer {
+  border-top: 1px solid #eeeee8;
+  padding-top: 12px;
+  color: #e77b39;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.qr-admin-footer {
+  margin-top: 40px;
+  text-align: center;
+  color: #899087;
+  font-size: 12px;
+}
+
+/* CUSTOMER TABLE SESSION */
+
+.table-session-banner {
+  margin: 15px 8%;
+  padding: 15px 20px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 13px;
+}
+
+.table-session-banner.valid {
+  background: #edf6ed;
+  color: #28683b;
+}
+
+.table-session-banner.invalid {
+  background: #fff0ee;
+  color: #b43f35;
+}
+
+.table-session-banner.checking {
+  background: #f1f3ed;
+  color: #69766c;
+}
+
+.table-session-banner strong,
+.table-session-banner small {
+  display: block;
+}
+
+.table-session-banner small {
+  margin-top: 5px;
+  font-size: 11px;
+}
+
+/* RESPONSIVE */
+
+@media (max-width: 1100px) {
+  .qr-card-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 600px) {
+  .qr-admin-page {
+    padding: 25px 5%;
+  }
+
+  .qr-admin-header,
+  .qr-management-heading {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .qr-admin-header h1 {
+    font-size: 30px;
+  }
+
+  .qr-admin-form {
+    flex-direction: column;
+  }
+
+  .qr-admin-form button {
+    min-height: 45px;
+  }
+
+  .qr-card-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .table-session-banner {
+    margin: 12px 5%;
+  }
+}
+
+/* PRINT */
+
+@media print {
+  @page {
+    size: A4;
+    margin: 8mm;
+  }
+
+  .qr-admin-header,
+  .qr-admin-access,
+  .qr-settings,
+  .qr-management-heading,
+  .qr-print-note,
+  .qr-admin-footer {
+    display: none !important;
+  }
+
+  .qr-admin-page {
+    padding: 0;
+    background: white;
+  }
+
+  .qr-card-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 4mm;
+  }
+
+  .qr-table-card {
+    box-shadow: none;
+    border: 1px solid #999;
+    border-radius: 0;
+    min-height: 58mm;
+    padding: 4mm;
+  }
+
+  .qr-table-card h3 {
+    margin: 5px 0;
+    font-size: 20px;
+  }
+
+  .qr-code-container {
+    min-height: 36mm;
+    margin: 5px auto;
+  }
+
+  .qr-code-container svg {
+    width: 34mm;
+    height: 34mm;
+  }
+
+  .qr-scan-instruction {
+    margin-bottom: 5px;
+  }
+
+  .qr-card-footer {
+    padding-top: 5px;
+  }
+}
+
+/* ==========================================
+   MILESTONE 8 - CUSTOMER ORDER SUBMISSION
+========================================== */
+
+.order-note-field {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  margin: 20px 0;
+}
+
+.order-note-field label {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.order-note-field textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 13px;
+  border: 1px solid #ddd;
+  border-radius: 10px;
+  font-family: inherit;
+  font-size: 14px;
+  resize: vertical;
+}
+
+.order-note-field small {
+  color: #888;
+  text-align: right;
+}
+
+.order-submit-button {
+  width: 100%;
+  margin-top: 12px;
+}
+
+.order-submit-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.order-continue-button {
+  width: 100%;
+  padding: 13px;
+  margin-top: 10px;
+  background: transparent;
+  border: 1px solid #ddd;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.order-submit-error {
+  padding: 12px;
+  margin: 12px 0;
+  color: #b42318;
+  background: #fff1f0;
+  border: 1px solid #fecaca;
+  border-radius: 9px;
+  font-size: 14px;
+}
+
+.order-success-panel {
+  text-align: center;
+  padding: 25px 10px;
+}
+
+.order-success-icon {
+  width: 65px;
+  height: 65px;
+  margin: 0 auto 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: #e7f7ed;
+  color: #21864b;
+  font-size: 35px;
+  font-weight: bold;
+}
+
+.order-success-panel h3 {
+  font-size: 23px;
+  margin: 12px 0;
+}
+
+.order-success-details {
+  margin: 24px 0;
+  padding: 16px;
+  background: #f8f8f6;
+  border-radius: 12px;
+  text-align: left;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+}
+
+.order-success-details div {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  overflow-wrap: anywhere;
+}
+
+.order-success-details span {
+  color: #777;
+  font-size: 12px;
+}
+
+.order-success-details strong {
+  font-size: 14px;
+}
+
+.order-pending-note {
+  padding: 12px;
+  background: #fff8e8;
+  border-radius: 9px;
+  font-size: 14px;
+}
+
+@media (max-width: 480px) {
+  .order-success-details {
+    grid-template-columns: 1fr;
+  }
+}
+
+
+/* ==========================================
+   CUSTOMER ORDER TRACKING
+========================================== */
+
+.order-tracking-card {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  padding: 8px 2px 16px;
+}
+
+.order-tracking-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 9px;
+}
+
+.order-tracking-header h2 {
+  margin: 0;
+  font-size: 27px;
+}
+
+.order-tracking-number {
+  font-size: 14px;
+  letter-spacing: 1px;
+  color: #b17a3b;
+  overflow-wrap: anywhere;
+}
+
+.order-tracking-status {
+  display: inline-block;
+  padding: 8px 16px;
+  border-radius: 30px;
+  background: #f1eee7;
+  color: #55432f;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.7px;
+}
+
+.order-tracking-status.status-preparing {
+  background: #fff0d8;
+  color: #a66a19;
+}
+
+.order-tracking-status.status-ready,
+.order-tracking-status.status-served {
+  background: #e5f5e9;
+  color: #237b43;
+}
+
+.order-tracking-status.status-rejected,
+.order-tracking-status.status-cancelled {
+  background: #fde8e8;
+  color: #b42318;
+}
+
+.order-tracking-details {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  padding: 16px;
+  background: #f8f6f1;
+  border-radius: 13px;
+}
+
+.order-tracking-details div {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  min-width: 0;
+}
+
+.order-tracking-details span {
+  color: #777;
+  font-size: 11px;
+}
+
+.order-tracking-details strong {
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+
+.order-tracking-progress h3,
+.order-tracking-items h3 {
+  font-size: 17px;
+  margin: 0 0 20px;
+}
+
+.order-tracking-timeline {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.order-tracking-step {
+  position: relative;
+  display: flex;
+  gap: 15px;
+  min-height: 76px;
+}
+
+.order-tracking-step:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  left: 17px;
+  top: 37px;
+  height: 39px;
+  width: 2px;
+  background: #dedbd4;
+}
+
+.order-tracking-step.completed:not(:last-child)::after {
+  background: #39945b;
+}
+
+.order-tracking-marker {
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 2px solid #dedbd4;
+  color: #999;
+  font-weight: 700;
+  font-size: 13px;
+  background: white;
+  z-index: 1;
+}
+
+.order-tracking-step.completed .order-tracking-marker {
+  background: #39945b;
+  border-color: #39945b;
+  color: white;
+}
+
+.order-tracking-step.current .order-tracking-marker {
+  border-color: #b17a3b;
+  color: #b17a3b;
+  background: #fff8ed;
+}
+
+.order-tracking-step-content {
+  padding: 3px 0 18px;
+}
+
+.order-tracking-step-content strong {
+  font-size: 14px;
+}
+
+.order-tracking-step-content p {
+  margin: 5px 0;
+  color: #777;
+  font-size: 12px;
+}
+
+.order-tracking-step-content small {
+  color: #b17a3b;
+  font-weight: 700;
+  font-size: 11px;
+}
+
+.order-tracking-items {
+  border-top: 1px solid #e9e5dc;
+  padding-top: 20px;
+}
+
+.order-tracking-item {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 12px 0;
+  border-bottom: 1px solid #eeeae3;
+}
+
+.order-tracking-item-main {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13px;
+}
+
+.order-tracking-item-main span {
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.order-tracking-item small {
+  font-size: 11px;
+  color: #777;
+}
+
+.order-tracking-refresh-note {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: #777;
+  font-size: 11px;
+}
+
+.tracking-live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #39945b;
+  flex-shrink: 0;
+}
+
+.order-tracking-terminal {
+  padding: 17px;
+  border-radius: 12px;
+  font-size: 13px;
+}
+
+.order-tracking-terminal p {
+  margin-bottom: 0;
+  line-height: 1.6;
+}
+
+.order-tracking-terminal.rejected,
+.order-tracking-terminal.cancelled,
+.order-tracking-error {
+  background: #fff0f0;
+  color: #a32929;
+}
+
+.order-tracking-loading,
+.order-tracking-error {
+  padding: 16px;
+  border-radius: 12px;
+  font-size: 13px;
+}
+
+.order-tracking-actions {
+  display: flex;
+  justify-content: center;
+  margin-top: 5px;
+}
+
+.order-tracking-continue,
+.order-tracking-done {
+  width: 100%;
+  border: none;
+  padding: 14px 20px;
+  border-radius: 9px;
+  background: #29251f;
+  color: white;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.order-tracking-continue:hover,
+.order-tracking-done:hover {
+  background: #514536;
+}
+
+@media (max-width: 480px) {
+  .order-tracking-details {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .order-tracking-header h2 {
+    font-size: 23px;
+  }
+}
+
+
+/* ==========================================
+   PAYMENT METHOD AND ONLINE CHECKOUT
+========================================== */
+
+.payment-method-field {
+  margin-top: 24px;
+}
+
+.payment-method-field h3 {
+  color: #193b2d;
+  font-size: 17px;
+  margin-bottom: 14px;
+}
+
+.payment-method-options {
+  display: grid;
+  gap: 12px;
+}
+
+.payment-option {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid #e1e5df;
+  border-radius: 10px;
+  cursor: pointer;
+  background: #fff;
+}
+
+.payment-option:has(input:checked) {
+  border-color: #28734d;
+  background: #f3f8f4;
+}
+
+.payment-option input {
+  width: 18px;
+  height: 18px;
+  accent-color: #28734d;
+}
+
+.payment-option span {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.payment-option strong {
+  color: #193b2d;
+  font-size: 14px;
+}
+
+.payment-option small {
+  color: #778178;
+  font-size: 12px;
+}
+
+.payment-customer-details {
+  margin-top: 22px;
+  display: grid;
+  gap: 14px;
+}
+
+.payment-customer-details label {
+  display: grid;
+  gap: 7px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #193b2d;
+}
+
+.payment-customer-details input {
+  width: 100%;
+  padding: 13px;
+  border: 1px solid #dfe4dc;
+  border-radius: 8px;
+  font-size: 14px;
+  background: #fff;
+  color: #222;
+}
+
+.payment-customer-details input:focus {
+  outline: none;
+  border-color: #28734d;
+  box-shadow: 0 0 0 3px rgba(40, 115, 77, 0.1);
+}
+
+.sslcommerz-info {
+  padding: 15px;
+  background: #f3f8f4;
+  border: 1px solid #dceade;
+  border-radius: 9px;
+}
+
+.sslcommerz-info strong {
+  color: #28734d;
+}
+
+.sslcommerz-info p {
+  color: #66756b;
+  font-size: 13px;
+  margin: 7px 0 0;
+  line-height: 1.6;
+}
+
+.payment-pending-info {
+  padding: 12px;
+  background: #fff8e8;
+  border-radius: 8px;
+  color: #805b15;
+  font-size: 13px;
+}
+
+
+/* ==========================================
+   CUSTOMER PAYMENT RESULT
+========================================== */
+
+.payment-result-banner {
+  padding: 18px;
+  margin: 18px 0;
+  border-radius: 12px;
+  border: 1px solid transparent;
+}
+
+.payment-result-banner strong {
+  display: block;
+  font-size: 16px;
+  margin-bottom: 7px;
+}
+
+.payment-result-banner p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.payment-result-paid {
+  background: #eaf7ee;
+  border-color: #b7dfc2;
+  color: #206b3b;
+}
+
+.payment-result-pending {
+  background: #fff8e8;
+  border-color: #f0d99e;
+  color: #8a641c;
+}
+
+.payment-result-failed,
+.payment-result-cancelled {
+  background: #fff0f0;
+  border-color: #f1c1c1;
+  color: #a32929;
+}
+
+.payment-result-refunded {
+  background: #eef3f8;
+  border-color: #cbd8e5;
+  color: #385a78;
+}
+
+===== frontend\src\index.css =====
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: 'DM Sans', sans-serif;
+  background: #faf9f5;
+  color: #193b2d;
+  -webkit-font-smoothing: antialiased;
+}
+
+button,
+input {
+  font: inherit;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible {
+  outline: 2px solid #e77b39;
+  outline-offset: 3px;
+}
+
+img {
+  display: block;
+  max-width: 100%;
+}
+
+
+===== frontend\src\main.tsx =====
+import { StrictMode } from 'react'
+import { createRoot } from 'react-dom/client'
+import './index.css'
+import App from './App.tsx'
+
+createRoot(document.getElementById('root')!).render(
+  <StrictMode>
+    <App />
+  </StrictMode>,
+)
+
+
+===== frontend\src\ManagerDashboard.css =====
+
+/* ==========================================
+   MANAGER LOGIN
+========================================== */
+
+.manager-login-page {
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 24px;
+  background: #f5f3ed;
+  font-family: Arial, sans-serif;
+}
+
+.manager-login-card {
+  width: 100%;
+  max-width: 430px;
+  padding: 42px 34px;
+  background: #ffffff;
+  border-radius: 20px;
+  box-shadow: 0 15px 50px rgba(30, 55, 43, 0.09);
+}
+
+.manager-brand {
+  font-family: Georgia, serif;
+  font-size: 27px;
+  font-weight: bold;
+  color: #203e30;
+  letter-spacing: 1px;
+  margin-bottom: 16px;
+}
+
+.manager-brand span {
+  color: #c77d4e;
+}
+
+.manager-eyebrow {
+  display: block;
+  color: #c77d4e;
+  font-size: 11px;
+  font-weight: bold;
+  letter-spacing: 2px;
+  margin-bottom: 10px;
+}
+
+.manager-login-card h1 {
+  color: #203e30;
+  font-family: Georgia, serif;
+  font-size: 34px;
+  margin: 12px 0;
+}
+
+.manager-login-card > p {
+  color: #777;
+  line-height: 1.6;
+  margin-bottom: 28px;
+}
+
+.manager-login-card label {
+  display: block;
+  margin-bottom: 9px;
+  color: #344b3e;
+  font-size: 14px;
+  font-weight: bold;
+}
+
+.manager-login-card input {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 14px;
+  border: 1px solid #deded7;
+  border-radius: 9px;
+  outline: none;
+  font-size: 15px;
+}
+
+.manager-login-card input:focus {
+  border-color: #294a39;
+}
+
+.manager-login-card form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* ==========================================
+   GENERAL
+========================================== */
+
+.manager-page {
+  min-height: 100vh;
+  padding: 35px 5%;
+  background: #f5f3ed;
+  color: #263d31;
+  font-family: Arial, sans-serif;
+}
+
+.manager-page * {
+  box-sizing: border-box;
+}
+
+.manager-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 25px;
+  margin-bottom: 32px;
+}
+
+.manager-header h1 {
+  font-family: Georgia, serif;
+  font-size: clamp(30px, 4vw, 42px);
+  margin: 8px 0;
+  color: #203e30;
+}
+
+.manager-header p {
+  color: #777;
+  margin: 0;
+  line-height: 1.6;
+}
+
+.manager-header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+/* ==========================================
+   BUTTONS
+========================================== */
+
+.manager-primary-button,
+.manager-refresh-button,
+.manager-link-button,
+.manager-logout-button,
+.manager-reject-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 18px;
+  border: none;
+  border-radius: 9px;
+  font-size: 13px;
+  font-weight: bold;
+  cursor: pointer;
+  text-decoration: none;
+  transition: 0.2s;
+}
+
+.manager-primary-button {
+  background: #203e30;
+  color: #fff;
+}
+
+.manager-primary-button:hover {
+  background: #315a43;
+}
+
+.manager-refresh-button,
+.manager-link-button {
+  background: #e8e8df;
+  color: #294637;
+}
+
+.manager-refresh-button:hover,
+.manager-link-button:hover {
+  background: #dcddd1;
+}
+
+.manager-logout-button,
+.manager-reject-button {
+  background: #f5e6e2;
+  color: #a43c32;
+}
+
+.manager-logout-button:hover,
+.manager-reject-button:hover {
+  background: #eed6d1;
+}
+
+.manager-primary-button:disabled,
+.manager-refresh-button:disabled,
+.manager-reject-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.manager-back-link {
+  display: block;
+  text-align: center;
+  margin-top: 25px;
+  color: #56705f;
+  text-decoration: none;
+  font-size: 14px;
+}
+
+/* ==========================================
+   ERROR
+========================================== */
+
+.manager-error {
+  padding: 12px 15px;
+  margin: 12px 0;
+  border-radius: 9px;
+  color: #a43c32;
+  background: #f9e8e5;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.manager-dashboard-error {
+  margin-bottom: 22px;
+}
+
+/* ==========================================
+   STATISTICS
+========================================== */
+
+.manager-stats {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 15px;
+  margin-bottom: 38px;
+}
+
+.manager-stat-card {
+  padding: 22px;
+  border-radius: 13px;
+  background: #ffffff;
+  border: 1px solid #eeece5;
+}
+
+.manager-stat-card span {
+  display: block;
+  color: #858585;
+  font-size: 12px;
+  margin-bottom: 12px;
+}
+
+.manager-stat-card strong {
+  color: #203e30;
+  font-size: 27px;
+}
+
+.pending-stat {
+  border-top: 3px solid #d59a52;
+}
+
+.preparing-stat {
+  border-top: 3px solid #6688b1;
+}
+
+.ready-stat {
+  border-top: 3px solid #599b72;
+}
+
+.revenue-stat {
+  border-top: 3px solid #c77d4e;
+}
+
+/* ==========================================
+   ORDER SECTION
+========================================== */
+
+.manager-orders-section {
+  margin-top: 20px;
+}
+
+.manager-orders-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 15px;
+  margin-bottom: 22px;
+}
+
+.manager-orders-heading h2 {
+  font-family: Georgia, serif;
+  color: #203e30;
+  font-size: 29px;
+  margin: 5px 0;
+}
+
+.manager-last-updated {
+  color: #888;
+  font-size: 12px;
+}
+
+/* ==========================================
+   FILTERS
+========================================== */
+
+.manager-filters {
+  display: flex;
+  gap: 9px;
+  flex-wrap: wrap;
+  margin-bottom: 25px;
+}
+
+.manager-filter {
+  padding: 10px 15px;
+  border: 1px solid #deded5;
+  background: #fff;
+  color: #59685e;
+  border-radius: 30px;
+  font-size: 12px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.manager-filter.active {
+  background: #203e30;
+  color: #fff;
+  border-color: #203e30;
+}
+
+/* ==========================================
+   ORDER CARDS
+========================================== */
+
+.manager-order-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+}
+
+.manager-order-card {
+  background: #fff;
+  border: 1px solid #eae8e0;
+  border-radius: 15px;
+  padding: 22px;
+  box-shadow: 0 5px 20px rgba(35, 50, 40, 0.035);
+  min-width: 0;
+}
+
+.manager-order-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  padding-bottom: 17px;
+  border-bottom: 1px solid #efeee9;
+}
+
+.manager-order-number {
+  display: block;
+  font-size: 11px;
+  color: #999;
+  word-break: break-all;
+}
+
+.manager-order-top h3 {
+  margin: 8px 0;
+  font-family: Georgia, serif;
+  font-size: 24px;
+  color: #203e30;
+}
+
+.manager-order-date {
+  display: block;
+  color: #999;
+  font-size: 11px;
+}
+
+/* ==========================================
+   STATUS
+========================================== */
+
+.manager-status {
+  display: inline-block;
+  padding: 8px 11px;
+  border-radius: 20px;
+  font-size: 10px;
+  font-weight: bold;
+  white-space: nowrap;
+}
+
+.status-pending {
+  background: #fff0d9;
+  color: #98621e;
+}
+
+.status-accepted {
+  background: #e6edf8;
+  color: #3e6193;
+}
+
+.status-preparing {
+  background: #e3edfa;
+  color: #3e6193;
+}
+
+.status-ready {
+  background: #e2f2e7;
+  color: #36774b;
+}
+
+.status-served {
+  background: #e6eee9;
+  color: #315c43;
+}
+
+.status-rejected,
+.status-cancelled {
+  background: #f8e5e2;
+  color: #a43c32;
+}
+
+/* ==========================================
+   ORDER ITEMS
+========================================== */
+
+.manager-items {
+  padding: 12px 0;
+}
+
+.manager-item {
+  position: relative;
+  padding: 13px 0;
+  border-bottom: 1px dashed #e9e8e2;
+}
+
+.manager-item:last-child {
+  border-bottom: none;
+}
+
+.manager-item-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  color: #293f32;
+  font-size: 14px;
+}
+
+.manager-item-heading strong {
+  font-weight: bold;
+}
+
+.manager-item-heading span {
+  white-space: nowrap;
+  font-weight: bold;
+}
+
+.manager-item-details {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 9px;
+  color: #888;
+  font-size: 11px;
+}
+
+.manager-addons {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-top: 10px;
+  color: #9a704d;
+  font-size: 11px;
+}
+
+.manager-addons > span:first-child {
+  font-weight: bold;
+}
+
+.manager-item-price {
+  margin-top: 9px;
+  text-align: right;
+  font-size: 13px;
+  font-weight: bold;
+  color: #294637;
+}
+
+/* ==========================================
+   CUSTOMER NOTE
+========================================== */
+
+.manager-customer-note {
+  margin: 10px 0;
+  padding: 13px;
+  border-radius: 9px;
+  background: #fff7e7;
+  font-size: 12px;
+  color: #755d38;
+}
+
+.manager-customer-note p {
+  margin: 7px 0 0;
+  line-height: 1.5;
+}
+
+/* ==========================================
+   ORDER SUMMARY
+========================================== */
+
+.manager-order-summary {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 15px;
+  padding: 17px 0;
+  border-top: 1px solid #efeee9;
+}
+
+.manager-order-summary div {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.manager-order-summary span {
+  color: #999;
+  font-size: 11px;
+}
+
+.manager-order-summary strong {
+  font-size: 17px;
+  color: #203e30;
+}
+
+/* ==========================================
+   ACTIONS
+========================================== */
+
+.manager-order-actions {
+  display: flex;
+  gap: 10px;
+  padding-top: 13px;
+  border-top: 1px solid #efeee9;
+}
+
+.manager-order-actions button {
+  flex: 1;
+}
+
+/* ==========================================
+   EMPTY STATE
+========================================== */
+
+.manager-empty-state {
+  text-align: center;
+  background: #fff;
+  padding: 65px 20px;
+  border-radius: 15px;
+  border: 1px solid #eae8e0;
+}
+
+.manager-empty-state > span {
+  font-size: 42px;
+}
+
+.manager-empty-state h3 {
+  color: #203e30;
+  font-family: Georgia, serif;
+  font-size: 24px;
+}
+
+.manager-empty-state p {
+  color: #888;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.manager-footer {
+  text-align: center;
+  color: #999;
+  font-size: 12px;
+  margin-top: 55px;
+  padding-bottom: 15px;
+}
+
+/* ==========================================
+   RESPONSIVE
+========================================== */
+
+@media (max-width: 1050px) {
+  .manager-stats {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .manager-order-list {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 650px) {
+  .manager-page {
+    padding: 22px 15px;
+  }
+
+  .manager-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .manager-header-actions {
+    width: 100%;
+  }
+
+  .manager-header-actions > * {
+    flex: 1;
+  }
+
+  .manager-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .manager-stat-card {
+    padding: 16px;
+  }
+
+  .manager-stat-card strong {
+    font-size: 23px;
+  }
+
+  .manager-orders-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .manager-order-card {
+    padding: 16px;
+  }
+
+  .manager-order-top h3 {
+    font-size: 21px;
+  }
+
+  .manager-login-card {
+    padding: 30px 22px;
+  }
+}
+
+
+/* ==========================================
+   PAYMENT MANAGEMENT
+========================================== */
+
+.manager-payment-panel {
+  margin: 18px 0;
+  padding: 17px;
+  border: 1px solid #eae8e0;
+  border-radius: 12px;
+  background: #fbfaf7;
+}
+
+.manager-payment-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 15px;
+}
+
+.manager-payment-heading strong {
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  color: #6f766e;
+}
+
+.manager-payment-badge {
+  padding: 6px 11px;
+  border-radius: 20px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.payment-status-paid {
+  background: #e6f4ea;
+  color: #25643b;
+}
+
+.payment-status-pending,
+.payment-status-cash_due {
+  background: #fff4dc;
+  color: #8a5b00;
+}
+
+.payment-status-failed,
+.payment-status-cancelled {
+  background: #fde8e7;
+  color: #a12b25;
+}
+
+.payment-status-refunded {
+  background: #eee8fb;
+  color: #61449a;
+}
+
+.manager-payment-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 15px 22px;
+}
+
+.manager-payment-grid div {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.manager-payment-grid span {
+  color: #999;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.manager-payment-grid strong {
+  color: #203e30;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.manager-cash-paid-button {
+  margin-top: 16px;
+  padding: 10px 16px;
+  border: none;
+  border-radius: 8px;
+  background: #203e30;
+  color: white;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.manager-cash-paid-button:hover {
+  opacity: 0.85;
+}
+
+.manager-cash-paid-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+@media (max-width: 640px) {
+  .manager-payment-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .manager-payment-panel {
+    padding: 14px;
+  }
+}
+
+===== frontend\src\ManagerDashboard.tsx =====
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type FormEvent,
+} from "react";
+
+import "./ManagerDashboard.css";
+
+type OrderStatus =
+  | "AWAITING_PAYMENT"
+  | "PENDING"
+  | "ACCEPTED"
+  | "REJECTED"
+  | "PREPARING"
+  | "READY"
+  | "SERVED"
+  | "CANCELLED";
+
+type ManagerOrder = {
+  id: number;
+  orderNumber: string;
+  tableNumber: number;
+  status: OrderStatus;
+  totalAmount: number;
+  totalPreparationWorkMinutes: number;
+  customerNote: string | null;
+  createdAt: string;
+  updatedAt: string;
+  paymentMethod: string;
+  paymentStatus: string;
+  transactionId: string | null;
+  paymentAmount: number | string | null;
+  paymentCurrency: string | null;
+  paidAt: string | null;
+  items: {
+    foodId: number;
+    foodName: string;
+    quantity: number;
+    unitPrice: number;
+    lineTotal: number;
+    spiceLevel: string;
+    preparationTimeMinutes: number;
+    selectedAddons: {
+      name: string;
+      price: number;
+    }[];
+  }[];
+};
+
+type OrderFilter = "ALL" | OrderStatus;
+
+const API_BASE_URL =
+  `${window.location.protocol}//${window.location.hostname}:8090`;
+
+const POLLING_INTERVAL = 12000;
+
+async function getErrorMessage(response: Response): Promise<string> {
+  const body = await response.text();
+
+  if (!body) {
+    return `Server error: ${response.status}`;
+  }
+
+  try {
+    const data = JSON.parse(body);
+
+    return (
+      data.message ||
+      data.error ||
+      `Server error: ${response.status}`
+    );
+  } catch {
+    return body;
+  }
+}
+
+function formatMoney(amount: number): string {
+  return `৳${Number(amount).toFixed(2)}`;
+}
+
+function formatDate(date: string): string {
+  return new Date(date).toLocaleString("en-BD", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
+}
+
+function getNextAction(status: OrderStatus) {
+  switch (status) {
+    case "PENDING":
+      return {
+        label: "Accept order",
+        nextStatus: "ACCEPTED" as OrderStatus,
+      };
+
+    case "ACCEPTED":
+      return {
+        label: "Start preparing",
+        nextStatus: "PREPARING" as OrderStatus,
+      };
+
+    case "PREPARING":
+      return {
+        label: "Mark as ready",
+        nextStatus: "READY" as OrderStatus,
+      };
+
+    case "READY":
+      return {
+        label: "Mark as served",
+        nextStatus: "SERVED" as OrderStatus,
+      };
+
+    default:
+      return null;
+  }
+}
+
+export default function ManagerDashboard() {
+  const [adminKeyInput, setAdminKeyInput] = useState("");
+  const [adminKey, setAdminKey] = useState("");
+  const [authenticated, setAuthenticated] = useState(false);
+
+  const [orders, setOrders] = useState<ManagerOrder[]>([]);
+
+  const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const [updatingOrder, setUpdatingOrder] = useState("");
+
+  const [error, setError] = useState("");
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+
+  const [notificationsEnabled, setNotificationsEnabled] =
+  useState(false);
+
+const knownOrderIds = useRef<Set<number> | null>(null);
+
+  const [filter, setFilter] = useState<OrderFilter>("ALL");
+
+  // ==========================================
+  // LOAD ORDERS
+  // ==========================================
+
+  const fetchOrders = useCallback(async (key: string) => {
+    const response = await fetch(
+      `${API_BASE_URL}/api/admin/orders`,
+      {
+        method: "GET",
+        headers: {
+          "X-Admin-Key": key,
+        },
+        cache: "no-store",
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(await getErrorMessage(response));
+    }
+
+    const data: ManagerOrder[] = await response.json();
+
+if (!Array.isArray(data)) {
+  throw new Error("Invalid order data received from server.");
+}
+
+// First load: remember existing orders without alerting.
+if (knownOrderIds.current === null) {
+
+  knownOrderIds.current = new Set(
+    data.map((order) => order.id)
+  );
+
+} else {
+
+  // Find newly arrived pending orders.
+  const newOrders = data.filter(
+    (order) =>
+      order.status === "PENDING" &&
+      !knownOrderIds.current!.has(order.id)
+  );
+
+  // Remember all orders to prevent duplicate notifications.
+  data.forEach((order) => {
+    knownOrderIds.current!.add(order.id);
+  });
+
+  // Notify manager about new orders.
+  if (
+    notificationsEnabled &&
+    "Notification" in window &&
+    Notification.permission === "granted"
+  ) {
+
+    newOrders.forEach((order) => {
+
+      new Notification("New Khai-Dai Order!", {
+        body:
+          `Table ${order.tableNumber} | ` +
+          `${order.orderNumber} | ` +
+          `${formatMoney(order.totalAmount)}`,
+        tag: `khaidai-order-${order.id}`,
+      });
+
+    });
+
+  }
+}
+
+setOrders(data);
+    setLastUpdated(new Date());
+    setError("");
+  }, [notificationsEnabled]);
+
+  // ==========================================
+  // ADMIN LOGIN
+  // ==========================================
+
+  const handleLogin = async (
+    event: FormEvent<HTMLFormElement>
+  ) => {
+    event.preventDefault();
+
+    const key = adminKeyInput.trim();
+
+    if (!key) {
+      setError("Please enter your administrator key.");
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+
+    try {
+      await fetchOrders(key);
+
+      setAdminKey(key);
+      setAuthenticated(true);
+      setAdminKeyInput("");
+
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Unable to access manager dashboard."
+      );
+
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ==========================================
+// ENABLE BROWSER NOTIFICATIONS
+// ==========================================
+
+const enableNotifications = async () => {
+
+  if (!("Notification" in window)) {
+    setError(
+      "Your browser does not support notifications."
+    );
+    return;
+  }
+
+  if (Notification.permission === "denied") {
+    setError(
+      "Notifications are blocked. Allow them in your browser site settings."
+    );
+    return;
+  }
+
+  try {
+
+    const permission = await Notification.requestPermission();
+
+    if (permission === "granted") {
+
+      setNotificationsEnabled(true);
+      setError("");
+
+    } else {
+
+      setError(
+        "Please allow browser notifications to receive new-order alerts."
+      );
+
+    }
+
+  } catch {
+
+    setError("Unable to enable browser notifications.");
+
+  }
+};
+
+  // ==========================================
+  // AUTOMATIC ORDER REFRESH
+  // ==========================================
+
+  useEffect(() => {
+    if (!authenticated || !adminKey) {
+      return;
+    }
+
+    const interval = window.setInterval(() => {
+      fetchOrders(adminKey).catch((err: unknown) => {
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Unable to refresh orders."
+        );
+      });
+    }, POLLING_INTERVAL);
+
+    return () => window.clearInterval(interval);
+
+  }, [authenticated, adminKey, fetchOrders]);
+
+  // ==========================================
+  // MANUAL REFRESH
+  // ==========================================
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+
+    try {
+      await fetchOrders(adminKey);
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Unable to refresh orders."
+      );
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  // ==========================================
+  // UPDATE ORDER STATUS
+  // ==========================================
+
+  const updateStatus = async (
+    orderNumber: string,
+    status: OrderStatus
+  ) => {
+    setUpdatingOrder(orderNumber);
+    setError("");
+
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/admin/orders/${encodeURIComponent(orderNumber)}/status`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Admin-Key": adminKey,
+          },
+          body: JSON.stringify({
+            status,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(await getErrorMessage(response));
+      }
+
+      await fetchOrders(adminKey);
+
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Unable to update order."
+      );
+
+    } finally {
+      setUpdatingOrder("");
+    }
+  };
+
+  // ==========================================
+  // MARK CASH PAYMENT AS PAID
+  // ==========================================
+
+  const markCashAsPaid = async (orderNumber: string) => {
+
+    const confirmed = window.confirm(
+      "Confirm that cash payment has been received?"
+    );
+
+    if (!confirmed) return;
+
+    setUpdatingOrder(orderNumber);
+    setError("");
+
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/admin/orders/${encodeURIComponent(orderNumber)}/cash-payment`,
+        {
+          method: "PATCH",
+          headers: {
+            "X-Admin-Key": adminKey,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(await getErrorMessage(response));
+      }
+
+      await fetchOrders(adminKey);
+
+    } catch (err) {
+
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Unable to record cash payment."
+      );
+
+    } finally {
+
+      setUpdatingOrder("");
+
+    }
+  };
+
+  // ==========================================
+  // REJECT ORDER
+  // ==========================================
+
+  const rejectOrder = async (orderNumber: string) => {
+    const confirmed = window.confirm(
+      "Are you sure you want to reject this order?"
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    await updateStatus(orderNumber, "REJECTED");
+  };
+
+  // ==========================================
+  // LOGOUT
+  // ==========================================
+
+  const logout = () => {
+    setAdminKey("");
+    setAdminKeyInput("");
+    setAuthenticated(false);
+    setOrders([]);
+    setFilter("ALL");
+    setError("");
+    setLastUpdated(null);
+  };
+
+  // ==========================================
+  // DASHBOARD STATISTICS
+  // ==========================================
+
+  const pendingCount = orders.filter(
+    (order) => order.status === "PENDING"
+  ).length;
+
+  const preparingCount = orders.filter(
+    (order) => order.status === "PREPARING"
+  ).length;
+
+  const readyCount = orders.filter(
+    (order) => order.status === "READY"
+  ).length;
+
+  const totalRevenue = orders
+    .filter((order) => order.paymentStatus === "PAID")
+    .reduce(
+      (total, order) =>
+        total + Number(order.paymentAmount ?? 0),
+      0
+    );
+
+  // ==========================================
+  // FILTER ORDERS
+  // ==========================================
+
+  const filteredOrders = useMemo(() => {
+    if (filter === "ALL") {
+      return orders;
+    }
+
+    return orders.filter(
+      (order) => order.status === filter
+    );
+  }, [orders, filter]);
+
+  // ==========================================
+  // LOGIN SCREEN
+  // ==========================================
+
+  if (!authenticated) {
+    return (
+      <main className="manager-login-page">
+
+        <section className="manager-login-card">
+
+          <div className="manager-brand">
+            KHAI<span>-</span>DAI
+          </div>
+
+          <span className="manager-eyebrow">
+            RESTAURANT MANAGEMENT
+          </span>
+
+          <h1>Manager Login</h1>
+
+          <p>
+            Sign in to manage incoming restaurant orders.
+          </p>
+
+          <form onSubmit={handleLogin}>
+
+            <label htmlFor="manager-key">
+              Administrator key
+            </label>
+
+            <input
+              id="manager-key"
+              type="password"
+              value={adminKeyInput}
+              onChange={(event) =>
+                setAdminKeyInput(event.target.value)
+              }
+              placeholder="Enter your admin key"
+              autoComplete="off"
+              required
+            />
+
+            {error && (
+              <div className="manager-error">
+                {error}
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="manager-primary-button"
+            >
+              {loading ? "Signing in..." : "Open Dashboard"}
+            </button>
+
+          </form>
+
+          <a href="/" className="manager-back-link">
+            Back to restaurant
+          </a>
+
+        </section>
+
+      </main>
+    );
+  }
+
+  // ==========================================
+  // MAIN DASHBOARD
+  // ==========================================
+
+  return (
+    <main className="manager-page">
+
+      <header className="manager-header">
+
+        <div>
+          <div className="manager-brand">
+            KHAI<span>-</span>DAI
+          </div>
+
+          <span className="manager-eyebrow">
+            RESTAURANT MANAGEMENT
+          </span>
+
+          <h1>Order Dashboard</h1>
+
+          <p>
+            Manage customer orders and kitchen preparation.
+          </p>
+        </div>
+
+        <div className="manager-header-actions">
+
+          <button
+  onClick={enableNotifications}
+  disabled={notificationsEnabled}
+  className="manager-refresh-button"
+>
+  {notificationsEnabled
+    ? "✓ Alerts enabled"
+    : "🔔 Enable alerts"}
+</button>
+
+          <button
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className="manager-refresh-button"
+          >
+            {refreshing ? "Refreshing..." : "↻ Refresh"}
+          </button>
+
+          <a href="/admin/qr" className="manager-link-button">
+            QR Management
+          </a>
+
+          <button
+            onClick={logout}
+            className="manager-logout-button"
+          >
+            Logout
+          </button>
+
+        </div>
+
+      </header>
+
+      {error && (
+        <div className="manager-error manager-dashboard-error">
+          {error}
+        </div>
+      )}
+
+      {/* STATISTICS */}
+
+      <section className="manager-stats">
+
+        <article className="manager-stat-card">
+          <span>Total orders</span>
+          <strong>{orders.length}</strong>
+        </article>
+
+        <article className="manager-stat-card pending-stat">
+          <span>Pending orders</span>
+          <strong>{pendingCount}</strong>
+        </article>
+
+        <article className="manager-stat-card preparing-stat">
+          <span>Preparing</span>
+          <strong>{preparingCount}</strong>
+        </article>
+
+        <article className="manager-stat-card ready-stat">
+          <span>Ready to serve</span>
+          <strong>{readyCount}</strong>
+        </article>
+
+        <article className="manager-stat-card revenue-stat">
+          <span>Accepted order value</span>
+          <strong>{formatMoney(totalRevenue)}</strong>
+        </article>
+
+      </section>
+
+      {/* ORDER MANAGEMENT */}
+
+      <section className="manager-orders-section">
+
+        <div className="manager-orders-heading">
+
+          <div>
+            <span className="manager-eyebrow">
+              LIVE RESTAURANT ORDERS
+            </span>
+
+            <h2>Customer orders</h2>
+          </div>
+
+          <div className="manager-last-updated">
+            {lastUpdated
+              ? `Updated ${lastUpdated.toLocaleTimeString()}`
+              : "Waiting for orders"}
+          </div>
+
+        </div>
+
+        {/* FILTERS */}
+
+        <div className="manager-filters">
+
+          {(
+            [
+              "ALL",
+              "PENDING",
+              "ACCEPTED",
+              "PREPARING",
+              "READY",
+              "SERVED",
+              "REJECTED",
+            ] as OrderFilter[]
+          ).map((status) => (
+
+            <button
+              key={status}
+              className={
+                filter === status
+                  ? "manager-filter active"
+                  : "manager-filter"
+              }
+              onClick={() => setFilter(status)}
+            >
+              {status === "ALL"
+                ? "All orders"
+                : status.replace("_", " ")}
+            </button>
+
+          ))}
+
+        </div>
+
+        {/* ORDER CARDS */}
+
+        {filteredOrders.length === 0 ? (
+
+          <div className="manager-empty-state">
+            <span>🍽️</span>
+
+            <h3>No orders found</h3>
+
+            <p>
+              {filter === "ALL"
+                ? "New customer orders will appear here automatically."
+                : `There are currently no ${filter.toLowerCase()} orders.`}
+            </p>
+          </div>
+
+        ) : (
+
+          <div className="manager-order-list">
+
+            {filteredOrders.map((order) => {
+
+              const nextAction = getNextAction(order.status);
+
+              const isUpdating =
+                updatingOrder === order.orderNumber;
+
+              return (
+
+                <article
+                  className="manager-order-card"
+                  key={order.id}
+                >
+
+                  {/* ORDER HEADER */}
+
+                  <div className="manager-order-top">
+
+                    <div>
+                      <span className="manager-order-number">
+                        {order.orderNumber}
+                      </span>
+
+                      <h3>
+                        Table {order.tableNumber}
+                      </h3>
+
+                      <span className="manager-order-date">
+                        {formatDate(order.createdAt)}
+                      </span>
+                    </div>
+
+                    <span
+                      className={`manager-status status-${order.status.toLowerCase()}`}
+                    >
+                      {order.status.replace("_", " ")}
+                    </span>
+
+                  </div>
+
+                  {/* PAYMENT DETAILS */}
+
+                  <div className="manager-payment-panel">
+
+                    <div className="manager-payment-heading">
+                      <strong>PAYMENT DETAILS</strong>
+
+                      <span className={`manager-payment-badge payment-status-${order.paymentStatus.toLowerCase()}`}>
+                        {order.paymentStatus === "CASH_DUE"
+                          ? "CASH DUE"
+                          : order.paymentStatus.replace("_", " ")}
+                      </span>
+                    </div>
+
+                    <div className="manager-payment-grid">
+
+                      <div>
+                        <span>Payment method</span>
+                        <strong>
+                          {order.paymentMethod === "SSLCOMMERZ"
+                            ? "SSLCommerz"
+                            : "Cash"}
+                        </strong>
+                      </div>
+
+                      <div>
+                        <span>Payment amount</span>
+                        <strong>
+                          {order.paymentAmount != null
+                            ? `${formatMoney(Number(order.paymentAmount))} ${order.paymentCurrency || "BDT"}`
+                            : "Not received"}
+                        </strong>
+                      </div>
+
+                      <div>
+                        <span>Transaction ID</span>
+                        <strong>
+                          {order.transactionId || "Not applicable"}
+                        </strong>
+                      </div>
+
+                      <div>
+                        <span>Payment date</span>
+                        <strong>
+                          {order.paidAt
+                            ? formatDate(order.paidAt)
+                            : "Not paid yet"}
+                        </strong>
+                      </div>
+
+                    </div>
+
+                    {order.paymentMethod === "CASH" &&
+                      order.paymentStatus === "CASH_DUE" && (
+
+                      <button
+                        className="manager-cash-paid-button"
+                        disabled={isUpdating}
+                        onClick={() => markCashAsPaid(order.orderNumber)}
+                      >
+                        {isUpdating
+                          ? "Updating..."
+                          : "Mark cash as paid"}
+                      </button>
+
+                    )}
+
+                  </div>
+
+                  {/* ORDER ITEMS */}
+
+                  <div className="manager-items">
+
+                    {order.items.map((item, index) => (
+
+                      <div
+                        className="manager-item"
+                        key={`${item.foodId}-${index}`}
+                      >
+
+                        <div className="manager-item-heading">
+
+                          <strong>
+                            {item.foodName}
+                          </strong>
+
+                          <span>
+                            × {item.quantity}
+                          </span>
+
+                        </div>
+
+                        <div className="manager-item-details">
+
+                          <span>
+                            Spice: {item.spiceLevel}
+                          </span>
+
+                          <span>
+                            Preparation: {item.preparationTimeMinutes} min
+                          </span>
+
+                        </div>
+
+                        {(item.selectedAddons ?? []).length > 0 && (
+
+                          <div className="manager-addons">
+
+                            <span>Add-ons:</span>
+
+                            {item.selectedAddons.map(
+                              (addon, addonIndex) => (
+
+                                <span key={addonIndex}>
+                                  {addon.name} (+{formatMoney(addon.price)})
+                                </span>
+
+                              )
+                            )}
+
+                          </div>
+
+                        )}
+
+                        <div className="manager-item-price">
+                          {formatMoney(item.lineTotal)}
+                        </div>
+
+                      </div>
+
+                    ))}
+
+                  </div>
+
+                  {/* CUSTOMER NOTE */}
+
+                  {order.customerNote && (
+
+                    <div className="manager-customer-note">
+                      <strong>Customer note:</strong>
+                      <p>{order.customerNote}</p>
+                    </div>
+
+                  )}
+
+                  {/* ORDER TOTAL */}
+
+                  <div className="manager-order-summary">
+
+                    <div>
+                      <span>Estimated preparation time</span>
+                      <strong>
+                        {order.totalPreparationWorkMinutes} min
+                      </strong>
+                    </div>
+
+                    <div>
+                      <span>Order total</span>
+                      <strong>
+                        {formatMoney(order.totalAmount)}
+                      </strong>
+                    </div>
+
+                  </div>
+
+                  {/* ORDER ACTIONS */}
+
+                  {nextAction && (
+
+                    <div className="manager-order-actions">
+
+                      {order.status === "PENDING" && (
+
+                        <button
+                          className="manager-reject-button"
+                          disabled={isUpdating}
+                          onClick={() =>
+                            rejectOrder(order.orderNumber)
+                          }
+                        >
+                          Reject
+                        </button>
+
+                      )}
+
+                      <button
+                        className="manager-primary-button"
+                        disabled={isUpdating}
+                        onClick={() =>
+                          updateStatus(
+                            order.orderNumber,
+                            nextAction.nextStatus
+                          )
+                        }
+                      >
+                        {isUpdating
+                          ? "Updating..."
+                          : nextAction.label}
+                      </button>
+
+                    </div>
+
+                  )}
+
+                </article>
+
+              );
+
+            })}
+
+          </div>
+
+        )}
+
+      </section>
+
+      <footer className="manager-footer">
+        Khai-Dai Restaurant Management System · Manager Dashboard
+      </footer>
+
+    </main>
+  );
+}
+
+
+===== frontend\src\OrderTracking.tsx =====
+
+import { useEffect, useState } from "react";
+
+type TrackedOrderItem = {
+  foodId: number;
+  foodName: string;
+  quantity: number;
+  unitPrice: number | string;
+  lineTotal: number | string;
+  spiceLevel: string;
+  preparationTimeMinutes: number;
+  selectedAddons: {
+    name: string;
+    price: number | string;
+  }[];
+};
+
+type TrackedOrder = {
+  id: number;
+  orderNumber: string;
+  tableNumber: number;
+  status: string;
+  totalAmount: number | string;
+  totalPreparationWorkMinutes: number;
+  createdAt: string;
+  items: TrackedOrderItem[];
+};
+
+type Props = {
+  orderNumber: string;
+  paymentResult: string | null;
+  onContinueBrowsing: () => void;
+  onDone: () => void;
+};
+
+const API_BASE_URL =
+  `${window.location.protocol}//${window.location.hostname}:8090`;
+
+const TRACKING_INTERVAL = 5000;
+
+const PAYMENT_RESULT_MESSAGES: Record<
+  string,
+  { title: string; description: string }
+> = {
+  paid: {
+    title: "Payment successful!",
+    description:
+      "Your payment has been verified. The restaurant has received your order.",
+  },
+  pending: {
+    title: "Payment verification pending",
+    description:
+      "We're still checking your payment. Your order status will continue updating.",
+  },
+  failed: {
+    title: "Payment failed",
+    description:
+      "Your payment could not be completed. If money was deducted, please contact restaurant staff.",
+  },
+  cancelled: {
+    title: "Payment cancelled",
+    description:
+      "You cancelled the payment. Your order has not been confirmed.",
+  },
+  refunded: {
+    title: "Payment refunded",
+    description:
+      "Your payment has been refunded. Contact restaurant staff if you need assistance.",
+  },
+};
+
+const TRACKING_STEPS = [
+  { status: "PENDING", label: "Order received", description: "Your order has been received." },
+  { status: "ACCEPTED", label: "Order accepted", description: "The restaurant accepted your order." },
+  { status: "PREPARING", label: "Preparing", description: "Our kitchen is preparing your food." },
+  { status: "READY", label: "Ready to serve", description: "Your food is ready!" },
+  { status: "SERVED", label: "Served", description: "Enjoy your meal!" },
+];
+
+const formatMoney = (amount: number | string) =>
+  `৳${Number(amount).toFixed(2)}`;
+
+export default function OrderTracking({
+  orderNumber,
+  paymentResult,
+  onContinueBrowsing,
+  onDone,
+}: Props) {
+
+  const [order, setOrder] = useState<TrackedOrder | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [retryKey, setRetryKey] = useState(0);
+
+  useEffect(() => {
+
+    let disposed = false;
+    let requestInProgress = false;
+
+    const loadOrder = async () => {
+
+      if (requestInProgress) return;
+
+      requestInProgress = true;
+
+      try {
+
+        const response = await fetch(
+          `${API_BASE_URL}/api/orders/${encodeURIComponent(orderNumber)}`,
+          {
+            method: "GET",
+            headers: {
+              Accept: "application/json",
+            },
+            cache: "no-store",
+          }
+        );
+
+        if (!response.ok) {
+
+          let message = `Unable to retrieve order (${response.status}).`;
+
+          try {
+            const data = await response.json();
+            message = data.detail || data.message || message;
+          } catch {
+            // Keep the default error message.
+          }
+
+          throw new Error(message);
+        }
+
+        const data: TrackedOrder = await response.json();
+
+        if (!data || data.orderNumber !== orderNumber) {
+          throw new Error("Unexpected order information received.");
+        }
+
+        if (!disposed) {
+          setOrder(data);
+          setError("");
+        }
+
+      } catch (err) {
+
+        if (!disposed) {
+          setError(
+            err instanceof Error
+              ? err.message
+              : "Unable to update order status."
+          );
+        }
+
+      } finally {
+
+        requestInProgress = false;
+
+        if (!disposed) {
+          setLoading(false);
+        }
+      }
+    };
+
+    void loadOrder();
+
+    const interval = window.setInterval(
+      loadOrder,
+      TRACKING_INTERVAL
+    );
+
+    return () => {
+      disposed = true;
+      window.clearInterval(interval);
+    };
+
+  }, [orderNumber, retryKey]);
+
+  const status = order?.status ?? "PENDING";
+
+  const paymentMessage = paymentResult
+    ? PAYMENT_RESULT_MESSAGES[paymentResult] ?? null
+    : null;
+
+  const isRejected = status === "REJECTED";
+  const isCancelled = status === "CANCELLED";
+  const isServed = status === "SERVED";
+
+  const isTerminal = isRejected || isCancelled || isServed;
+
+  const currentStep = TRACKING_STEPS.findIndex(
+    (step) => step.status === status
+  );
+
+  return (
+
+    <section className="order-tracking-card">
+
+      <div className="order-tracking-header">
+
+        <span className="eyebrow">
+          KHAI-DAI ORDER TRACKING
+        </span>
+
+        <h2>Your order</h2>
+
+        <strong className="order-tracking-number">
+          {orderNumber}
+        </strong>
+
+        {order && (
+          <span className={`order-tracking-status status-${status.toLowerCase()}`}>
+            {status.replaceAll("_", " ")}
+          </span>
+        )}
+
+      </div>
+
+      {paymentMessage && (
+        <div
+          className={`payment-result-banner payment-result-${paymentResult}`}
+          role="status"
+          aria-live="polite"
+        >
+          <strong>{paymentMessage.title}</strong>
+          <p>{paymentMessage.description}</p>
+        </div>
+      )}
+
+      {loading && !order && (
+        <div className="order-tracking-loading">
+          <p>Loading your order information...</p>
+        </div>
+      )}
+
+      {error && (
+        <div className="order-tracking-error" role="alert">
+          {error}
+          <p>We'll automatically try again.</p>
+
+          {!order && (
+            <button
+              type="button"
+              onClick={() => {
+                setLoading(true);
+                setRetryKey((value) => value + 1);
+              }}
+            >
+              Try again
+            </button>
+          )}
+        </div>
+      )}
+
+      {order && (
+
+        <>
+
+          <div className="order-tracking-details">
+
+            <div>
+              <span>Table</span>
+              <strong>{order.tableNumber}</strong>
+            </div>
+
+            <div>
+              <span>Order total</span>
+              <strong>
+                {formatMoney(order.totalAmount)}
+              </strong>
+            </div>
+
+            <div>
+              <span>Estimated preparation</span>
+              <strong>
+                {order.totalPreparationWorkMinutes} min
+              </strong>
+            </div>
+
+          </div>
+
+          {isRejected && (
+            <div className="order-tracking-terminal rejected">
+              <strong>Order rejected</strong>
+              <p>
+                Unfortunately, the restaurant could not accept
+                your order. Please contact our staff for assistance.
+              </p>
+            </div>
+          )}
+
+          {isCancelled && (
+            <div className="order-tracking-terminal cancelled">
+              <strong>Order cancelled</strong>
+              <p>
+                This order has been cancelled. Please contact
+                our staff if you need assistance.
+              </p>
+            </div>
+          )}
+
+          {!isRejected && !isCancelled && (
+
+            <div className="order-tracking-progress">
+
+              <h3>
+                {isServed
+                  ? "Your order has been served!"
+                  : status === "PENDING"
+                    ? "Waiting for restaurant approval"
+                    : status === "ACCEPTED"
+                      ? "Your order has been accepted!"
+                      : status === "PREPARING"
+                        ? "Your food is being prepared!"
+                        : status === "READY"
+                          ? "Your food is ready!"
+                          : "Order progress"}
+              </h3>
+
+              <ol className="order-tracking-timeline">
+
+                {TRACKING_STEPS.map((step, index) => {
+
+                  const completed =
+                    isServed || index < currentStep;
+
+                  const current =
+                    !isServed && index === currentStep;
+
+                  return (
+
+                    <li
+                      key={step.status}
+                      className={[
+                        "order-tracking-step",
+                        completed ? "completed" : "",
+                        current ? "current" : "",
+                      ].join(" ")}
+                    >
+
+                      <span className="order-tracking-marker">
+                        {completed ? "✓" : index + 1}
+                      </span>
+
+                      <div className="order-tracking-step-content">
+
+                        <strong>{step.label}</strong>
+
+                        <p>{step.description}</p>
+
+                        {current && (
+                          <small>Current status</small>
+                        )}
+
+                      </div>
+
+                    </li>
+
+                  );
+
+                })}
+
+              </ol>
+
+            </div>
+
+          )}
+
+          <div className="order-tracking-items">
+
+            <h3>Order summary</h3>
+
+            {order.items?.map((item, index) => (
+
+              <div
+                className="order-tracking-item"
+                key={`${item.foodId}-${index}`}
+              >
+
+                <div className="order-tracking-item-main">
+
+                  <strong>
+                    {item.foodName} × {item.quantity}
+                  </strong>
+
+                  <span>
+                    {formatMoney(item.lineTotal)}
+                  </span>
+
+                </div>
+
+                <small>
+                  Spice: {item.spiceLevel}
+                </small>
+
+                {item.selectedAddons?.length > 0 && (
+                  <small>
+                    Add-ons:{" "}
+                    {item.selectedAddons
+                      .map((addon) => addon.name)
+                      .join(", ")}
+                  </small>
+                )}
+
+              </div>
+
+            ))}
+
+          </div>
+
+          <p className="order-tracking-refresh-note">
+            <span className="tracking-live-dot" />
+            Order status automatically updates every 5 seconds.
+          </p>
+
+        </>
+
+      )}
+
+      <div className="order-tracking-actions">
+
+        {isTerminal ? (
+
+          <button
+            type="button"
+            className="order-tracking-done"
+            onClick={onDone}
+          >
+            Done
+          </button>
+
+        ) : (
+
+          <button
+            type="button"
+            className="order-tracking-continue"
+            onClick={onContinueBrowsing}
+          >
+            Continue browsing
+          </button>
+
+        )}
+
+      </div>
+
+    </section>
+
+  );
+}
+
+
+===== frontend\src\TableSessionBanner.tsx =====
+
+import { useEffect, useState } from "react";
+
+const API_BASE_URL =
+  `${window.location.protocol}//${window.location.hostname}:8090`;
+
+type Session = {
+  status: "checking" | "valid" | "invalid";
+  tableNumber?: number;
+  message?: string;
+};
+
+type ValidationResponse = {
+  valid: boolean;
+  tableNumber: number;
+  message: string;
+};
+
+export default function TableSessionBanner() {
+  const [session, setSession] = useState<Session | null>(null);
+
+  useEffect(() => {
+    const token = new URLSearchParams(
+      window.location.search
+    ).get("tableToken");
+
+    if (!token) {
+      setSession(null);
+      return;
+    }
+
+    const controller = new AbortController();
+
+    const validateTable = async () => {
+      setSession({ status: "checking" });
+
+      try {
+        const response = await fetch(
+          `${API_BASE_URL}/api/tables/validate/${encodeURIComponent(token)}`,
+          { signal: controller.signal }
+        );
+
+        if (!response.ok) {
+          throw new Error(
+            "Invalid or inactive restaurant table QR code."
+          );
+        }
+
+        const data: ValidationResponse =
+          await response.json();
+
+        if (!data.valid) {
+          throw new Error("Table verification failed.");
+        }
+
+        setSession({
+          status: "valid",
+          tableNumber: data.tableNumber,
+          message: data.message,
+        });
+
+      } catch (err) {
+        if (
+          err instanceof Error &&
+          err.name === "AbortError"
+        ) {
+          return;
+        }
+
+        setSession({
+          status: "invalid",
+          message:
+            err instanceof Error
+              ? err.message
+              : "Unable to verify table.",
+        });
+      }
+    };
+
+    validateTable();
+
+    return () => controller.abort();
+  }, []);
+
+  if (!session) return null;
+
+  if (session.status === "checking") {
+    return (
+      <div className="table-session-banner checking">
+        Verifying your restaurant table...
+      </div>
+    );
+  }
+
+  if (session.status === "invalid") {
+    return (
+      <div className="table-session-banner invalid">
+        ⚠️ {session.message}
+      </div>
+    );
+  }
+
+  return (
+    <div className="table-session-banner valid">
+      <span>✓</span>
+
+      <div>
+        <strong>
+          Welcome! You are ordering from Table{" "}
+          {session.tableNumber}.
+        </strong>
+
+        <small>
+          Your table has been verified successfully.
+        </small>
+      </div>
+    </div>
+  );
+}
+
+
+========== APP.TSX DASHBOARD INTEGRATION ==========
+
+  frontend\src\App.tsx:1:import { useMemo, useState } from "react";
+  frontend\src\App.tsx:2:
+  frontend\src\App.tsx:3:import "./App.css";
+> frontend\src\App.tsx:4:import ManagerDashboard from "./ManagerDashboard";
+  frontend\src\App.tsx:5:
+  frontend\src\App.tsx:6:import AdminQrPage from "./AdminQrPage";
+  frontend\src\App.tsx:7:import OrderTracking from "./OrderTracking";
+  frontend\src\App.tsx:8:
+  frontend\src\App.tsx:9:import TableSessionBanner from "./TableSessionBanner";
+  frontend\src\App.tsx:10:
+  frontend\src\App.tsx:75:  totalPreparationWorkMinutes: number;
+  frontend\src\App.tsx:76:  createdAt: string;
+  frontend\src\App.tsx:77:};
+  frontend\src\App.tsx:78:
+> frontend\src\App.tsx:79:const API_BASE_URL =
+  frontend\src\App.tsx:80:  `${window.location.protocol}//${window.location.hostname}:8090`;
+  frontend\src\App.tsx:81:
+  frontend\src\App.tsx:82:const tableToken =
+  frontend\src\App.tsx:83:  new URLSearchParams(window.location.search).get("tableToken")?.trim() ?? "";
+  frontend\src\App.tsx:84:
+  frontend\src\App.tsx:85:const trackingStorageKey = tableToken
+  frontend\src\App.tsx:910:        })),
+  frontend\src\App.tsx:911:      };
+  frontend\src\App.tsx:912:
+  frontend\src\App.tsx:913:      const orderResponse = await fetch(
+> frontend\src\App.tsx:914:        `${API_BASE_URL}/api/orders`,
+  frontend\src\App.tsx:915:        {
+  frontend\src\App.tsx:916:          method: "POST",
+  frontend\src\App.tsx:917:          headers: {
+  frontend\src\App.tsx:918:            "Content-Type": "application/json",
+  frontend\src\App.tsx:919:            "Accept": "application/json",
+  frontend\src\App.tsx:920:          },
+  frontend\src\App.tsx:979:    }
+  frontend\src\App.tsx:980:
+  frontend\src\App.tsx:981:    // ONLINE PAYMENT: INITIATE SSLCOMMERZ
+  frontend\src\App.tsx:982:    const paymentResponse = await fetch(
+> frontend\src\App.tsx:983:      `${API_BASE_URL}/api/payments/initiate`,
+  frontend\src\App.tsx:984:      {
+  frontend\src\App.tsx:985:        method: "POST",
+  frontend\src\App.tsx:986:        headers: {
+  frontend\src\App.tsx:987:          "Content-Type": "application/json",
+  frontend\src\App.tsx:988:          "Accept": "application/json",
+  frontend\src\App.tsx:989:        },
+  frontend\src\App.tsx:2428:
+  frontend\src\App.tsx:2429:function App() {
+  frontend\src\App.tsx:2430:
+  frontend\src\App.tsx:2431:  // Restaurant manager dashboard
+> frontend\src\App.tsx:2432:  if (window.location.pathname === "/admin/orders") {
+> frontend\src\App.tsx:2433:    return <ManagerDashboard />;
+  frontend\src\App.tsx:2434:  }
+  frontend\src\App.tsx:2435:
+  frontend\src\App.tsx:2436:  // Administrator QR management page
+  frontend\src\App.tsx:2437:  if (window.location.pathname === "/admin/qr") {
+  frontend\src\App.tsx:2438:    return <AdminQrPage />;
+  frontend\src\App.tsx:2439:  }
+
+
+
+
+========== APPLICATION PROPERTIES ==========
+
+spring.application.name=khaidai-backend
+
+# Server
+server.port=8090
+
+# PostgreSQL Database
+spring.datasource.url=jdbc:postgresql://localhost:5432/khaidai_db
+spring.datasource.username=${DB_USERNAME:postgres}
+#spring.datasource.password=[HIDDEN]
+spring.datasource.driver-class-name=org.postgresql.Driver
+
+# Hibernate / JPA
+spring.jpa.hibernate.ddl-auto=update
+spring.jpa.show-sql=false
+spring.jpa.open-in-view=false
+
+# JSON
+spring.jackson.serialization.indent-output=true
+#postgrePassword=[HIDDEN]
+
+
+# Admin security
+khaidai.admin.api-key=[HIDDEN]
+
+# Database
+spring.datasource.password=[HIDDEN]
+
+# SSLCommerz Sandbox
+sslcommerz.store-id=${SSLCOMMERZ_STORE_ID:}
+sslcommerz.store-password=[HIDDEN]
+sslcommerz.base-url=${SSLCOMMERZ_BASE_URL:https://sandbox.sslcommerz.com}
+sslcommerz.callback-base-url=${KHAIDAI_PUBLIC_BACKEND_URL:http://localhost:8090}
+
+sslcommerz.frontend-base-url=${KHAIDAI_FRONTEND_URL:http://localhost:5173}
+
+========== .\backend\pom.xml ==========
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+	<parent>
+		<groupId>org.springframework.boot</groupId>
+		<artifactId>spring-boot-starter-parent</artifactId>
+		<version>4.1.2</version>
+		<relativePath/> <!-- lookup parent from repository -->
+	</parent>
+	<groupId>com.khaidai</groupId>
+	<artifactId>backend</artifactId>
+	<version>0.0.1-SNAPSHOT</version>
+	<name/>
+	<description/>
+	<url/>
+	<licenses>
+		<license/>
+	</licenses>
+	<developers>
+		<developer/>
+	</developers>
+	<scm>
+		<connection/>
+		<developerConnection/>
+		<tag/>
+		<url/>
+	</scm>
+	<properties>
+		<java.version>21</java.version>
+	</properties>
+	<dependencies>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-data-jpa</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-validation</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-webmvc</artifactId>
+		</dependency>
+
+		<dependency>
+			<groupId>org.postgresql</groupId>
+			<artifactId>postgresql</artifactId>
+			<scope>runtime</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-data-jpa-test</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-validation-test</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-webmvc-test</artifactId>
+			<scope>test</scope>
+		</dependency>
+	</dependencies>
+
+	<build>
+		<plugins>
+			<plugin>
+				<groupId>org.springframework.boot</groupId>
+				<artifactId>spring-boot-maven-plugin</artifactId>
+			</plugin>
+		</plugins>
+	</build>
+
+</project>
+
+
+========== .\frontend\package.json ==========
+{
+  "name": "frontend",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "lint": "oxlint",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "qrcode.react": "^4.2.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.2",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.2",
+    "oxlint": "^1.90.0",
+    "typescript": "~7.0.2",
+    "vite": "^8.3.6"
+  }
+}

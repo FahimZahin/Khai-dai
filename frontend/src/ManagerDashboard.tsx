@@ -8,6 +8,7 @@ import {
 } from "react";
 
 import "./ManagerDashboard.css";
+import SalesAnalytics from "./SalesAnalytics";
 
 type OrderStatus =
   | "AWAITING_PAYMENT"
@@ -123,6 +124,7 @@ export default function ManagerDashboard() {
   const [adminKeyInput, setAdminKeyInput] = useState("");
   const [adminKey, setAdminKey] = useState("");
   const [authenticated, setAuthenticated] = useState(false);
+  const [activeView, setActiveView] = useState<"ORDERS" | "ANALYTICS">("ORDERS");
 
   const [orders, setOrders] = useState<ManagerOrder[]>([]);
 
@@ -455,6 +457,7 @@ const enableNotifications = async () => {
     setAdminKey("");
     setAdminKeyInput("");
     setAuthenticated(false);
+    setActiveView("ORDERS");
     setOrders([]);
     setFilter("ALL");
     setError("");
@@ -585,10 +588,16 @@ const enableNotifications = async () => {
             RESTAURANT MANAGEMENT
           </span>
 
-          <h1>Order Dashboard</h1>
+          <h1>
+            {activeView === "ANALYTICS"
+              ? "Sales Analytics"
+              : "Order Dashboard"}
+          </h1>
 
           <p>
-            Manage customer orders and kitchen preparation.
+            {activeView === "ANALYTICS"
+              ? "Review revenue, payments and restaurant performance."
+              : "Manage customer orders and kitchen preparation."}
           </p>
         </div>
 
@@ -612,6 +621,19 @@ const enableNotifications = async () => {
             {refreshing ? "Refreshing..." : "↻ Refresh"}
           </button>
 
+          <button
+            onClick={() =>
+              setActiveView(
+                activeView === "ORDERS" ? "ANALYTICS" : "ORDERS"
+              )
+            }
+            className="manager-link-button"
+          >
+            {activeView === "ANALYTICS"
+              ? "Order Dashboard"
+              : "Sales Analytics"}
+          </button>
+
           <a href="/admin/qr" className="manager-link-button">
             QR Management
           </a>
@@ -633,6 +655,10 @@ const enableNotifications = async () => {
         </div>
       )}
 
+      {activeView === "ANALYTICS" ? (
+        <SalesAnalytics adminKey={adminKey} />
+      ) : (
+        <>
       {/* STATISTICS */}
 
       <section className="manager-stats">
@@ -995,6 +1021,9 @@ const enableNotifications = async () => {
         )}
 
       </section>
+
+        </>
+      )}
 
       <footer className="manager-footer">
         Khai-Dai Restaurant Management System · Manager Dashboard
