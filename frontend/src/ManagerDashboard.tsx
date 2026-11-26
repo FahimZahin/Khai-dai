@@ -9,6 +9,7 @@ import {
 
 import "./ManagerDashboard.css";
 import SalesAnalytics from "./SalesAnalytics";
+import InventoryManagement from "./InventoryManagement";
 
 type OrderStatus =
   | "AWAITING_PAYMENT"
@@ -124,7 +125,7 @@ export default function ManagerDashboard() {
   const [adminKeyInput, setAdminKeyInput] = useState("");
   const [adminKey, setAdminKey] = useState("");
   const [authenticated, setAuthenticated] = useState(false);
-  const [activeView, setActiveView] = useState<"ORDERS" | "ANALYTICS">("ORDERS");
+  const [activeView, setActiveView] = useState<"ORDERS" | "ANALYTICS" | "INVENTORY">("ORDERS");
 
   const [orders, setOrders] = useState<ManagerOrder[]>([]);
 
@@ -589,15 +590,11 @@ const enableNotifications = async () => {
           </span>
 
           <h1>
-            {activeView === "ANALYTICS"
-              ? "Sales Analytics"
-              : "Order Dashboard"}
+            {activeView === "ANALYTICS" ? "Sales Analytics" : activeView === "INVENTORY" ? "Inventory Management" : "Order Dashboard"}
           </h1>
 
           <p>
-            {activeView === "ANALYTICS"
-              ? "Review revenue, payments and restaurant performance."
-              : "Manage customer orders and kitchen preparation."}
+            {activeView === "ANALYTICS" ? "Review revenue, payments and restaurant performance." : activeView === "INVENTORY" ? "Manage ingredients, stock and reorder levels." : "Manage customer orders and kitchen preparation."}
           </p>
         </div>
 
@@ -622,16 +619,24 @@ const enableNotifications = async () => {
           </button>
 
           <button
-            onClick={() =>
-              setActiveView(
-                activeView === "ORDERS" ? "ANALYTICS" : "ORDERS"
-              )
-            }
+            onClick={() => setActiveView("ORDERS")}
             className="manager-link-button"
           >
-            {activeView === "ANALYTICS"
-              ? "Order Dashboard"
-              : "Sales Analytics"}
+            Orders
+          </button>
+
+          <button
+            onClick={() => setActiveView("ANALYTICS")}
+            className="manager-link-button"
+          >
+            Sales Analytics
+          </button>
+
+          <button
+            onClick={() => setActiveView("INVENTORY")}
+            className="manager-link-button"
+          >
+            Inventory
           </button>
 
           <a href="/admin/qr" className="manager-link-button">
@@ -657,6 +662,8 @@ const enableNotifications = async () => {
 
       {activeView === "ANALYTICS" ? (
         <SalesAnalytics adminKey={adminKey} />
+      ) : activeView === "INVENTORY" ? (
+        <InventoryManagement adminKey={adminKey} />
       ) : (
         <>
       {/* STATISTICS */}
