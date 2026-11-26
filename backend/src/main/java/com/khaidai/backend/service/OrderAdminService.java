@@ -1,10 +1,13 @@
-
 package com.khaidai.backend.service;
 
 import com.khaidai.backend.dto.AdminOrderResponse;
 import com.khaidai.backend.entity.OrderStatus;
+import com.khaidai.backend.entity.Payment;
+import com.khaidai.backend.entity.PaymentMethod;
+import com.khaidai.backend.entity.PaymentStatus;
 import com.khaidai.backend.entity.RestaurantOrder;
 import com.khaidai.backend.repository.OrderRepository;
+import com.khaidai.backend.repository.PaymentRepository;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
@@ -16,22 +19,24 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.List;
 import java.util.Locale;
+import java.util.UUID;
 
 @Service
 public class OrderAdminService {
 
     private final OrderRepository orderRepository;
+    private final PaymentRepository paymentRepository;
 
     @Value("${khaidai.admin.api-key:}")
     private String configuredAdminKey;
 
-    public OrderAdminService(OrderRepository orderRepository) {
+    public OrderAdminService(
+            OrderRepository orderRepository,
+            PaymentRepository paymentRepository
+    ) {
         this.orderRepository = orderRepository;
+        this.paymentRepository = paymentRepository;
     }
-
-    // ==========================================
-    // GET ALL RESTAURANT ORDERS
-    // ==========================================
 
     @Transactional(readOnly = true)
     public List<AdminOrderResponse> getAllOrders(String adminKey) {
@@ -44,10 +49,6 @@ public class OrderAdminService {
                 .map(this::toResponse)
                 .toList();
     }
-
-    // ==========================================
-    // UPDATE ORDER STATUS
-    // ==========================================
 
     @Transactional
     public AdminOrderResponse updateOrderStatus(
@@ -72,20 +73,13 @@ public class OrderAdminService {
             throw badRequest("Invalid order status.");
         }
 
-        RestaurantOrder order = orderRepository
-                .findByOrderNumber(orderNumber)
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND,
-                        "Order not found."
-                ));
+        RestaurantOrder order = findOrder(orderNumber);
 
-        OrderStatus currentStatus = order.getStatus();
-
-        if (!isValidTransition(currentStatus, newStatus)) {
+        if (!isValidTransition(order.getStatus(), newStatus)) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
                     "Cannot change order status from "
-                            + currentStatus + " to " + newStatus + "."
+                            + order.getStatus() + " to " + newStatus + "."
             );
         }
 
@@ -97,8 +91,85 @@ public class OrderAdminService {
     }
 
     // ==========================================
-    // ALLOWED STATUS TRANSITIONS
+    // MARK CASH PAYMENT AS PAID
     // ==========================================
+
+    @Transactional
+    public AdminOrderResponse markCashPaymentAsPaid(
+            String orderNumber,
+            String adminKey
+    ) {
+
+        validateAdminKey(adminKey);
+
+        RestaurantOrder order = findOrder(orderNumber);
+
+        if (order.getStatus() == OrderStatus.AWAITING_PAYMENT) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "This order is awaiting online payment."
+            );
+        }
+
+        List<Payment> existingPayments =
+                paymentRepository.findAllByOrder_IdOrderByCreatedAtDesc(
+                        order.getId()
+                );
+
+        Payment latest = existingPayments.isEmpty()
+                ? null
+                : existingPayments.get(0);
+
+        if (latest != null &&
+                latest.getStatus() == PaymentStatus.PAID) {
+
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "This order is already marked as paid."
+            );
+        }
+
+        if (latest != null &&
+                latest.getPaymentMethod() == PaymentMethod.SSLCOMMERZ &&
+                latest.getStatus() == PaymentStatus.PENDING) {
+
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "An online payment is still pending."
+            );
+        }
+
+        Payment cashPayment = new Payment();
+
+        cashPayment.setOrder(order);
+
+        cashPayment.setTransactionId(
+                "CASH-" + UUID.randomUUID()
+                        .toString()
+                        .replace("-", "")
+                        .substring(0, 24)
+                        .toUpperCase(Locale.ROOT)
+        );
+
+        cashPayment.setPaymentMethod(PaymentMethod.CASH);
+        cashPayment.setStatus(PaymentStatus.PAID);
+        cashPayment.setAmount(order.getTotalAmount());
+        cashPayment.setCurrency("BDT");
+
+        paymentRepository.saveAndFlush(cashPayment);
+
+        return toResponse(order);
+    }
+
+    private RestaurantOrder findOrder(String orderNumber) {
+
+        return orderRepository
+                .findByOrderNumber(orderNumber)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Order not found."
+                ));
+    }
 
     private boolean isValidTransition(
             OrderStatus current,
@@ -124,10 +195,6 @@ public class OrderAdminService {
         };
     }
 
-    // ==========================================
-    // ADMIN AUTHENTICATION
-    // ==========================================
-
     private void validateAdminKey(String providedAdminKey) {
 
         if (configuredAdminKey == null ||
@@ -141,12 +208,8 @@ public class OrderAdminService {
 
         if (providedAdminKey == null ||
                 !MessageDigest.isEqual(
-                        configuredAdminKey.getBytes(
-                                StandardCharsets.UTF_8
-                        ),
-                        providedAdminKey.getBytes(
-                                StandardCharsets.UTF_8
-                        )
+                        configuredAdminKey.getBytes(StandardCharsets.UTF_8),
+                        providedAdminKey.getBytes(StandardCharsets.UTF_8)
                 )) {
 
             throw new ResponseStatusException(
@@ -157,10 +220,31 @@ public class OrderAdminService {
     }
 
     // ==========================================
-    // CONVERT ENTITY TO ADMIN RESPONSE
+    // MAP ORDER AND LATEST PAYMENT
     // ==========================================
 
     private AdminOrderResponse toResponse(RestaurantOrder order) {
+
+        List<Payment> payments =
+                paymentRepository.findAllByOrder_IdOrderByCreatedAtDesc(
+                        order.getId()
+                );
+
+        Payment latest = payments.isEmpty()
+                ? null
+                : payments.get(0);
+
+        String paymentMethod = latest != null
+                ? latest.getPaymentMethod().name()
+                : order.getStatus() == OrderStatus.AWAITING_PAYMENT
+                    ? "SSLCOMMERZ"
+                    : "CASH";
+
+        String paymentStatus = latest != null
+                ? latest.getStatus().name()
+                : "CASH".equals(paymentMethod)
+                    ? "CASH_DUE"
+                    : "PENDING";
 
         List<AdminOrderResponse.ItemResponse> items =
                 order.getItems()
@@ -174,7 +258,6 @@ public class OrderAdminService {
                                         item.getLineTotal(),
                                         item.getSpiceLevel(),
                                         item.getPreparationTimeMinutes(),
-
                                         item.getSelectedAddons()
                                                 .stream()
                                                 .map(addon ->
@@ -198,6 +281,14 @@ public class OrderAdminService {
                 order.getCustomerNote(),
                 order.getCreatedAt(),
                 order.getUpdatedAt(),
+
+                paymentMethod,
+                paymentStatus,
+                latest != null ? latest.getTransactionId() : null,
+                latest != null ? latest.getAmount() : null,
+                latest != null ? latest.getCurrency() : "BDT",
+                latest != null ? latest.getPaidAt() : null,
+
                 items
         );
     }

@@ -1,4 +1,3 @@
-
 package com.khaidai.backend.controller;
 
 import com.khaidai.backend.dto.AdminOrderResponse;
@@ -30,10 +29,6 @@ public class OrderAdminController {
         this.orderAdminService = orderAdminService;
     }
 
-    // ==========================================
-    // GET ALL ORDERS
-    // ==========================================
-
     @GetMapping
     public List<AdminOrderResponse> getAllOrders(
             @RequestHeader(
@@ -42,33 +37,38 @@ public class OrderAdminController {
             )
             String adminKey
     ) {
-
         return orderAdminService.getAllOrders(adminKey);
     }
 
-    // ==========================================
-    // UPDATE ORDER STATUS
-    // ==========================================
-
     @PatchMapping("/{orderNumber}/status")
     public AdminOrderResponse updateOrderStatus(
-
             @PathVariable String orderNumber,
-
             @RequestHeader(
                     value = "X-Admin-Key",
                     required = false
             )
             String adminKey,
-
             @RequestBody(required = false)
             UpdateOrderStatusRequest request
-
     ) {
-
         return orderAdminService.updateOrderStatus(
                 orderNumber,
                 request == null ? null : request.status(),
+                adminKey
+        );
+    }
+
+    @PatchMapping("/{orderNumber}/cash-payment")
+    public AdminOrderResponse markCashPaymentAsPaid(
+            @PathVariable String orderNumber,
+            @RequestHeader(
+                    value = "X-Admin-Key",
+                    required = false
+            )
+            String adminKey
+    ) {
+        return orderAdminService.markCashPaymentAsPaid(
+                orderNumber,
                 adminKey
         );
     }

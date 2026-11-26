@@ -635,3 +635,118 @@
     padding: 30px 22px;
   }
 }
+
+
+/* ==========================================
+   PAYMENT MANAGEMENT
+========================================== */
+
+.manager-payment-panel {
+  margin: 18px 0;
+  padding: 17px;
+  border: 1px solid #eae8e0;
+  border-radius: 12px;
+  background: #fbfaf7;
+}
+
+.manager-payment-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 15px;
+}
+
+.manager-payment-heading strong {
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  color: #6f766e;
+}
+
+.manager-payment-badge {
+  padding: 6px 11px;
+  border-radius: 20px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.payment-status-paid {
+  background: #e6f4ea;
+  color: #25643b;
+}
+
+.payment-status-pending,
+.payment-status-cash_due {
+  background: #fff4dc;
+  color: #8a5b00;
+}
+
+.payment-status-failed,
+.payment-status-cancelled {
+  background: #fde8e7;
+  color: #a12b25;
+}
+
+.payment-status-refunded {
+  background: #eee8fb;
+  color: #61449a;
+}
+
+.manager-payment-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 15px 22px;
+}
+
+.manager-payment-grid div {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.manager-payment-grid span {
+  color: #999;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.manager-payment-grid strong {
+  color: #203e30;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.manager-cash-paid-button {
+  margin-top: 16px;
+  padding: 10px 16px;
+  border: none;
+  border-radius: 8px;
+  background: #203e30;
+  color: white;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.manager-cash-paid-button:hover {
+  opacity: 0.85;
+}
+
+.manager-cash-paid-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+@media (max-width: 640px) {
+  .manager-payment-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .manager-payment-panel {
+    padding: 14px;
+  }
+}

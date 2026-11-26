@@ -29,6 +29,12 @@ type ManagerOrder = {
   customerNote: string | null;
   createdAt: string;
   updatedAt: string;
+  paymentMethod: string;
+  paymentStatus: string;
+  transactionId: string | null;
+  paymentAmount: number | string | null;
+  paymentCurrency: string | null;
+  paidAt: string | null;
   items: {
     foodId: number;
     foodName: string;
@@ -379,6 +385,53 @@ const enableNotifications = async () => {
   };
 
   // ==========================================
+  // MARK CASH PAYMENT AS PAID
+  // ==========================================
+
+  const markCashAsPaid = async (orderNumber: string) => {
+
+    const confirmed = window.confirm(
+      "Confirm that cash payment has been received?"
+    );
+
+    if (!confirmed) return;
+
+    setUpdatingOrder(orderNumber);
+    setError("");
+
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/admin/orders/${encodeURIComponent(orderNumber)}/cash-payment`,
+        {
+          method: "PATCH",
+          headers: {
+            "X-Admin-Key": adminKey,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(await getErrorMessage(response));
+      }
+
+      await fetchOrders(adminKey);
+
+    } catch (err) {
+
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Unable to record cash payment."
+      );
+
+    } finally {
+
+      setUpdatingOrder("");
+
+    }
+  };
+
+  // ==========================================
   // REJECT ORDER
   // ==========================================
 
@@ -425,13 +478,10 @@ const enableNotifications = async () => {
   ).length;
 
   const totalRevenue = orders
-    .filter((order) =>
-      ["ACCEPTED", "PREPARING", "READY", "SERVED"].includes(
-        order.status
-      )
-    )
+    .filter((order) => order.paymentStatus === "PAID")
     .reduce(
-      (total, order) => total + Number(order.totalAmount),
+      (total, order) =>
+        total + Number(order.paymentAmount ?? 0),
       0
     );
 
@@ -727,6 +777,75 @@ const enableNotifications = async () => {
                     >
                       {order.status.replace("_", " ")}
                     </span>
+
+                  </div>
+
+                  {/* PAYMENT DETAILS */}
+
+                  <div className="manager-payment-panel">
+
+                    <div className="manager-payment-heading">
+                      <strong>PAYMENT DETAILS</strong>
+
+                      <span className={`manager-payment-badge payment-status-${order.paymentStatus.toLowerCase()}`}>
+                        {order.paymentStatus === "CASH_DUE"
+                          ? "CASH DUE"
+                          : order.paymentStatus.replace("_", " ")}
+                      </span>
+                    </div>
+
+                    <div className="manager-payment-grid">
+
+                      <div>
+                        <span>Payment method</span>
+                        <strong>
+                          {order.paymentMethod === "SSLCOMMERZ"
+                            ? "SSLCommerz"
+                            : "Cash"}
+                        </strong>
+                      </div>
+
+                      <div>
+                        <span>Payment amount</span>
+                        <strong>
+                          {order.paymentAmount != null
+                            ? `${formatMoney(Number(order.paymentAmount))} ${order.paymentCurrency || "BDT"}`
+                            : "Not received"}
+                        </strong>
+                      </div>
+
+                      <div>
+                        <span>Transaction ID</span>
+                        <strong>
+                          {order.transactionId || "Not applicable"}
+                        </strong>
+                      </div>
+
+                      <div>
+                        <span>Payment date</span>
+                        <strong>
+                          {order.paidAt
+                            ? formatDate(order.paidAt)
+                            : "Not paid yet"}
+                        </strong>
+                      </div>
+
+                    </div>
+
+                    {order.paymentMethod === "CASH" &&
+                      order.paymentStatus === "CASH_DUE" && (
+
+                      <button
+                        className="manager-cash-paid-button"
+                        disabled={isUpdating}
+                        onClick={() => markCashAsPaid(order.orderNumber)}
+                      >
+                        {isUpdating
+                          ? "Updating..."
+                          : "Mark cash as paid"}
+                      </button>
+
+                    )}
 
                   </div>
 

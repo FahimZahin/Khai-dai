@@ -1,4 +1,3 @@
-
 package com.khaidai.backend.dto;
 
 import com.khaidai.backend.entity.OrderStatus;
@@ -17,6 +16,14 @@ public record AdminOrderResponse(
         String customerNote,
         Instant createdAt,
         Instant updatedAt,
+
+        String paymentMethod,
+        String paymentStatus,
+        String transactionId,
+        BigDecimal paymentAmount,
+        String paymentCurrency,
+        Instant paidAt,
+
         List<ItemResponse> items
 ) {
 
