@@ -10,6 +10,7 @@ import {
 import "./ManagerDashboard.css";
 import SalesAnalytics from "./SalesAnalytics";
 import InventoryManagement from "./InventoryManagement";
+import RecipeManagement from "./RecipeManagement";
 
 type OrderStatus =
   | "AWAITING_PAYMENT"
@@ -125,7 +126,7 @@ export default function ManagerDashboard() {
   const [adminKeyInput, setAdminKeyInput] = useState("");
   const [adminKey, setAdminKey] = useState("");
   const [authenticated, setAuthenticated] = useState(false);
-  const [activeView, setActiveView] = useState<"ORDERS" | "ANALYTICS" | "INVENTORY">("ORDERS");
+  const [activeView, setActiveView] = useState<"ORDERS" | "ANALYTICS" | "INVENTORY" | "RECIPES">("ORDERS");
 
   const [orders, setOrders] = useState<ManagerOrder[]>([]);
 
@@ -590,11 +591,11 @@ const enableNotifications = async () => {
           </span>
 
           <h1>
-            {activeView === "ANALYTICS" ? "Sales Analytics" : activeView === "INVENTORY" ? "Inventory Management" : "Order Dashboard"}
+            {activeView === "ANALYTICS" ? "Sales Analytics" : activeView === "INVENTORY" ? "Inventory Management" : activeView === "RECIPES" ? "Recipe Management" : "Order Dashboard"}
           </h1>
 
           <p>
-            {activeView === "ANALYTICS" ? "Review revenue, payments and restaurant performance." : activeView === "INVENTORY" ? "Manage ingredients, stock and reorder levels." : "Manage customer orders and kitchen preparation."}
+            {activeView === "ANALYTICS" ? "Review revenue, payments and restaurant performance." : activeView === "INVENTORY" ? "Manage ingredients, stock and reorder levels." : activeView === "RECIPES" ? "Manage menu recipes and ingredient quantities." : "Manage customer orders and kitchen preparation."}
           </p>
         </div>
 
@@ -639,6 +640,13 @@ const enableNotifications = async () => {
             Inventory
           </button>
 
+          <button
+            onClick={() => setActiveView("RECIPES")}
+            className="manager-link-button"
+          >
+            Recipes
+          </button>
+
           <a href="/admin/qr" className="manager-link-button">
             QR Management
           </a>
@@ -664,6 +672,8 @@ const enableNotifications = async () => {
         <SalesAnalytics adminKey={adminKey} />
       ) : activeView === "INVENTORY" ? (
         <InventoryManagement adminKey={adminKey} />
+      ) : activeView === "RECIPES" ? (
+        <RecipeManagement adminKey={adminKey} />
       ) : (
         <>
       {/* STATISTICS */}

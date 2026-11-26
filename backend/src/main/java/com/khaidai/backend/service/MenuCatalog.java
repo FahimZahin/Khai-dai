@@ -174,6 +174,13 @@ public final class MenuCatalog {
         )
     );
 
+    public static java.util.List<FoodItem> all() {
+
+        return FOODS.values().stream()
+                .sorted(java.util.Comparator.comparing(FoodItem::id))
+                .toList();
+    }
+
     public static FoodItem findById(Integer foodId) {
 
         if (foodId == null) {
