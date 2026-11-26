@@ -529,6 +529,16 @@ const [customerPostcode, setCustomerPostcode] = useState("");
 const [pendingPaymentOrderNumber, setPendingPaymentOrderNumber] =
   useState<string | null>(null);
 
+const [paymentResult, setPaymentResult] = useState<string | null>(() => {
+  const result = new URLSearchParams(window.location.search)
+    .get("paymentResult")
+    ?.trim()
+    .toLowerCase();
+
+  return result && ["paid", "pending", "failed", "cancelled", "refunded"].includes(result)
+    ? result
+    : null;
+});
 
 const [trackingOrderNumber, setTrackingOrderNumber] =
   useState<string | null>(() => {
@@ -1873,6 +1883,7 @@ orderNumber = confirmedOrderNumber;
 
   <OrderTracking
     orderNumber={trackingOrderNumber}
+    paymentResult={paymentResult}
 
     onContinueBrowsing={() => {
       setIsCartOpen(false);

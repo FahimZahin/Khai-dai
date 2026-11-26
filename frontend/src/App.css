@@ -2165,3 +2165,51 @@ img {
   font-size: 13px;
 }
 
+
+/* ==========================================
+   CUSTOMER PAYMENT RESULT
+========================================== */
+
+.payment-result-banner {
+  padding: 18px;
+  margin: 18px 0;
+  border-radius: 12px;
+  border: 1px solid transparent;
+}
+
+.payment-result-banner strong {
+  display: block;
+  font-size: 16px;
+  margin-bottom: 7px;
+}
+
+.payment-result-banner p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.payment-result-paid {
+  background: #eaf7ee;
+  border-color: #b7dfc2;
+  color: #206b3b;
+}
+
+.payment-result-pending {
+  background: #fff8e8;
+  border-color: #f0d99e;
+  color: #8a641c;
+}
+
+.payment-result-failed,
+.payment-result-cancelled {
+  background: #fff0f0;
+  border-color: #f1c1c1;
+  color: #a32929;
+}
+
+.payment-result-refunded {
+  background: #eef3f8;
+  border-color: #cbd8e5;
+  color: #385a78;
+}

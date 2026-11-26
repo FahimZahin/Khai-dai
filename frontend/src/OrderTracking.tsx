@@ -37,6 +37,37 @@ const API_BASE_URL =
 
 const TRACKING_INTERVAL = 5000;
 
+const PAYMENT_RESULT_MESSAGES: Record<
+  string,
+  { title: string; description: string }
+> = {
+  paid: {
+    title: "Payment successful!",
+    description:
+      "Your payment has been verified. The restaurant has received your order.",
+  },
+  pending: {
+    title: "Payment verification pending",
+    description:
+      "We're still checking your payment. Your order status will continue updating.",
+  },
+  failed: {
+    title: "Payment failed",
+    description:
+      "Your payment could not be completed. If money was deducted, please contact restaurant staff.",
+  },
+  cancelled: {
+    title: "Payment cancelled",
+    description:
+      "You cancelled the payment. Your order has not been confirmed.",
+  },
+  refunded: {
+    title: "Payment refunded",
+    description:
+      "Your payment has been refunded. Contact restaurant staff if you need assistance.",
+  },
+};
+
 const TRACKING_STEPS = [
   { status: "PENDING", label: "Order received", description: "Your order has been received." },
   { status: "ACCEPTED", label: "Order accepted", description: "The restaurant accepted your order." },
@@ -144,6 +175,10 @@ export default function OrderTracking({
 
   const status = order?.status ?? "PENDING";
 
+  const paymentMessage = paymentResult
+    ? PAYMENT_RESULT_MESSAGES[paymentResult] ?? null
+    : null;
+
   const isRejected = status === "REJECTED";
   const isCancelled = status === "CANCELLED";
   const isServed = status === "SERVED";
@@ -177,6 +212,17 @@ export default function OrderTracking({
         )}
 
       </div>
+
+      {paymentMessage && (
+        <div
+          className={`payment-result-banner payment-result-${paymentResult}`}
+          role="status"
+          aria-live="polite"
+        >
+          <strong>{paymentMessage.title}</strong>
+          <p>{paymentMessage.description}</p>
+        </div>
+      )}
 
       {loading && !order && (
         <div className="order-tracking-loading">
