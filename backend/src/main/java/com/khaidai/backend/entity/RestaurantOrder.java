@@ -36,6 +36,9 @@ public class RestaurantOrder {
     @Column(name = "customer_note", length = 500)
     private String customerNote;
 
+    @Column(name = "inventory_deducted", nullable = false)
+    private boolean inventoryDeducted = false;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
@@ -98,6 +101,14 @@ public class RestaurantOrder {
 
     public void setStatus(OrderStatus status) {
         this.status = status;
+    }
+
+    public boolean isInventoryDeducted() {
+        return inventoryDeducted;
+    }
+
+    public void setInventoryDeducted(boolean inventoryDeducted) {
+        this.inventoryDeducted = inventoryDeducted;
     }
 
     public BigDecimal getTotalAmount() {

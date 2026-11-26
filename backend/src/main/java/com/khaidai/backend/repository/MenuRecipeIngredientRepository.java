@@ -4,6 +4,7 @@ import com.khaidai.backend.entity.MenuRecipeIngredient;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 import java.util.Optional;
@@ -23,4 +24,15 @@ public interface MenuRecipeIngredientRepository
         order by recipe.foodId asc, ingredient.name asc
     """)
     List<MenuRecipeIngredient> findAllWithIngredient();
+
+    @Query("""
+        select recipe
+        from MenuRecipeIngredient recipe
+        join fetch recipe.ingredient ingredient
+        where recipe.foodId in :foodIds
+        order by ingredient.id asc, recipe.foodId asc
+    """)
+    List<MenuRecipeIngredient> findAllForFoodIds(
+            @Param("foodIds") List<Integer> foodIds
+    );
 }

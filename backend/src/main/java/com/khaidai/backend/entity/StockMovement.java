@@ -8,6 +8,12 @@ import java.time.Instant;
 @Entity
 @Table(
     name = "inventory_stock_movements",
+    uniqueConstraints = {
+        @UniqueConstraint(
+            name = "uk_stock_movement_reference_ingredient_type",
+            columnNames = {"movement_reference", "ingredient_id", "movement_type"}
+        )
+    },
     indexes = {
         @Index(
             name = "idx_inventory_movement_created",
@@ -52,6 +58,9 @@ public class StockMovement {
     @Column(length = 250)
     private String note;
 
+    @Column(name = "movement_reference", length = 100)
+    private String reference;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
@@ -65,11 +74,23 @@ public class StockMovement {
             BigDecimal balanceAfter,
             String note
     ) {
+        this(ingredient, movementType, quantityChange, balanceAfter, note, null);
+    }
+
+    public StockMovement(
+            InventoryIngredient ingredient,
+            StockMovementType movementType,
+            BigDecimal quantityChange,
+            BigDecimal balanceAfter,
+            String note,
+            String reference
+    ) {
         this.ingredient = ingredient;
         this.movementType = movementType;
         this.quantityChange = quantityChange;
         this.balanceAfter = balanceAfter;
         this.note = note;
+        this.reference = reference;
     }
 
     @PrePersist
@@ -99,6 +120,10 @@ public class StockMovement {
 
     public String getNote() {
         return note;
+    }
+
+    public String getReference() {
+        return reference;
     }
 
     public Instant getCreatedAt() {

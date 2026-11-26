@@ -5,5 +5,7 @@ public enum StockMovementType {
     OPENING,
     STOCK_IN,
     WASTE,
-    ADJUSTMENT
+    ADJUSTMENT,
+    ORDER_DEDUCTION,
+    ORDER_RESTORATION
 }

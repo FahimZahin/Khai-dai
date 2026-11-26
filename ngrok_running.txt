@@ -1,0 +1,3 @@
+$env:KHAIDAI_PUBLIC_BACKEND_URL = "https://shriek-fruit-ploy.ngrok-free.dev"
+
+$env:KHAIDAI_FRONTEND_URL = "http://192.168.0.104:5173"

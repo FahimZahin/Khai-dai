@@ -389,6 +389,21 @@ const enableNotifications = async () => {
   };
 
   // ==========================================
+  // CANCEL ORDER AND RESTORE INVENTORY
+  // ==========================================
+
+  const cancelOrder = async (orderNumber: string) => {
+
+    const confirmed = window.confirm(
+      "Cancel this order? If ingredients were deducted, stock will be restored automatically."
+    );
+
+    if (!confirmed) return;
+
+    await updateStatus(orderNumber, "CANCELLED");
+  };
+
+  // ==========================================
   // MARK CASH PAYMENT AS PAID
   // ==========================================
 
@@ -742,6 +757,7 @@ const enableNotifications = async () => {
               "READY",
               "SERVED",
               "REJECTED",
+              "CANCELLED",
             ] as OrderFilter[]
           ).map((status) => (
 
@@ -1006,6 +1022,17 @@ const enableNotifications = async () => {
                           Reject
                         </button>
 
+                      )}
+
+                      {(order.status === "ACCEPTED" ||
+                        order.status === "PREPARING") && (
+                        <button
+                          className="manager-reject-button"
+                          disabled={isUpdating}
+                          onClick={() => cancelOrder(order.orderNumber)}
+                        >
+                          Cancel order
+                        </button>
                       )}
 
                       <button

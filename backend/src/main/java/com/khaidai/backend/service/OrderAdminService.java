@@ -26,16 +26,19 @@ public class OrderAdminService {
 
     private final OrderRepository orderRepository;
     private final PaymentRepository paymentRepository;
+    private final OrderInventoryService orderInventoryService;
 
     @Value("${khaidai.admin.api-key:}")
     private String configuredAdminKey;
 
     public OrderAdminService(
             OrderRepository orderRepository,
-            PaymentRepository paymentRepository
+            PaymentRepository paymentRepository,
+            OrderInventoryService orderInventoryService
     ) {
         this.orderRepository = orderRepository;
         this.paymentRepository = paymentRepository;
+        this.orderInventoryService = orderInventoryService;
     }
 
     @Transactional(readOnly = true)
@@ -81,6 +84,14 @@ public class OrderAdminService {
                     "Cannot change order status from "
                             + order.getStatus() + " to " + newStatus + "."
             );
+        }
+
+        if (newStatus == OrderStatus.ACCEPTED) {
+            orderInventoryService.validateAvailability(order);
+        } else if (newStatus == OrderStatus.PREPARING) {
+            orderInventoryService.deductForOrder(order);
+        } else if (newStatus == OrderStatus.CANCELLED) {
+            orderInventoryService.restoreForOrder(order);
         }
 
         order.setStatus(newStatus);
@@ -164,7 +175,7 @@ public class OrderAdminService {
     private RestaurantOrder findOrder(String orderNumber) {
 
         return orderRepository
-                .findByOrderNumber(orderNumber)
+                .findByOrderNumberForUpdate(orderNumber)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND,
                         "Order not found."
@@ -180,13 +191,16 @@ public class OrderAdminService {
 
             case PENDING ->
                     next == OrderStatus.ACCEPTED ||
-                    next == OrderStatus.REJECTED;
+                    next == OrderStatus.REJECTED ||
+                    next == OrderStatus.CANCELLED;
 
             case ACCEPTED ->
-                    next == OrderStatus.PREPARING;
+                    next == OrderStatus.PREPARING ||
+                    next == OrderStatus.CANCELLED;
 
             case PREPARING ->
-                    next == OrderStatus.READY;
+                    next == OrderStatus.READY ||
+                    next == OrderStatus.CANCELLED;
 
             case READY ->
                     next == OrderStatus.SERVED;

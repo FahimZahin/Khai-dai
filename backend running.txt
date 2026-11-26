@@ -1,0 +1,191 @@
+backend running:
+
+
+$ErrorActionPreference = "Stop"
+
+# ==========================================
+# KHAI-DAI - COMPLETE BACKEND CONFIGURATION
+# ==========================================
+
+$root = "C:\Users\Zahin\Documents\Projects\Khai-dai"
+Set-Location "$root\backend"
+
+Write-Host "`n===== 1. POSTGRESQL =====" -ForegroundColor Cyan
+
+$pgServices = @(Get-Service | Where-Object {
+    $_.Name -match '^postgresql'
+})
+
+if (!$pgServices) {
+    throw "PostgreSQL service not found."
+}
+
+$pg = $pgServices | Where-Object Status -eq "Running" | Select-Object -First 1
+
+if (!$pg) {
+    $pg = $pgServices | Select-Object -First 1
+    Start-Service -Name $pg.Name
+}
+
+if (!(Test-NetConnection 127.0.0.1 -Port 5432 -InformationLevel Quiet)) {
+    throw "PostgreSQL is not reachable on port 5432."
+}
+
+Write-Host "PostgreSQL running." -ForegroundColor Green
+
+# ==========================================
+# 2. SECURE CREDENTIAL INPUT
+# ==========================================
+
+function Set-ProcessSecret {
+    param(
+        [string]$Name,
+        [string]$Prompt
+    )
+
+    $secure = Read-Host $Prompt -AsSecureString
+    $ptr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure)
+
+    try {
+        [Environment]::SetEnvironmentVariable(
+            $Name,
+            [Runtime.InteropServices.Marshal]::PtrToStringBSTR($ptr),
+            "Process"
+        )
+    }
+    finally {
+        [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($ptr)
+    }
+}
+
+Write-Host "`n===== 3. DATABASE CREDENTIALS =====" -ForegroundColor Cyan
+
+$env:DB_USERNAME = "postgres"
+
+Set-ProcessSecret "DB_PASSWORD" "Enter PostgreSQL password"
+
+# ==========================================
+# 4. ADMIN SECURITY
+# ==========================================
+
+Write-Host "`n===== 4. ADMIN SECURITY =====" -ForegroundColor Cyan
+
+Set-ProcessSecret "KHAIDAI_ADMIN_API_KEY" "Enter existing Khai-Dai Admin API Key"
+
+# ==========================================
+# 5. SSLCOMMERZ SANDBOX
+# ==========================================
+
+Write-Host "`n===== 5. SSLCOMMERZ =====" -ForegroundColor Cyan
+
+$env:SSLCOMMERZ_STORE_ID = "khaid6b0533e6b8597"
+
+Write-Host "Store ID loaded: $env:SSLCOMMERZ_STORE_ID" -ForegroundColor Green
+
+Set-ProcessSecret "SSLCOMMERZ_STORE_PASSWORD" "Enter SSLCommerz Sandbox Store Password"
+
+$env:SSLCOMMERZ_BASE_URL = "https://sandbox.sslcommerz.com"
+
+# ==========================================
+# 6. FRONTEND URL
+# ==========================================
+
+Write-Host "`n===== 6. FRONTEND CONFIGURATION =====" -ForegroundColor Cyan
+
+$frontendUrl = Read-Host "Frontend URL (Enter for http://localhost:5173)"
+
+if ([string]::IsNullOrWhiteSpace($frontendUrl)) {
+    $frontendUrl = "http://localhost:5173"
+}
+
+$env:KHAIDAI_FRONTEND_URL = $frontendUrl.TrimEnd('/')
+
+# ==========================================
+# 7. NGROK
+# ==========================================
+
+Write-Host "`n===== 7. NGROK TUNNEL =====" -ForegroundColor Cyan
+
+$ngrokCommand = Get-Command ngrok -ErrorAction SilentlyContinue
+
+if (!$ngrokCommand) {
+    throw "ngrok command not found. Install ngrok or configure its PATH."
+}
+
+$tunnel = $null
+
+# Reuse existing tunnel if available
+try {
+    $existing = Invoke-RestMethod "http://127.0.0.1:4040/api/tunnels" -TimeoutSec 3
+
+    $tunnel = $existing.tunnels |
+        Where-Object {
+            $_.public_url -like "https://*" -and
+            $_.config.addr -match "8090"
+        } |
+        Select-Object -First 1
+}
+catch {
+    $tunnel = $null
+}
+
+# Start ngrok if necessary
+if (!$tunnel) {
+    Write-Host "Starting ngrok..." -ForegroundColor Yellow
+
+    Start-Process -FilePath $ngrokCommand.Source `
+        -ArgumentList "http", "8090"
+
+    for ($i = 0; $i -lt 30; $i++) {
+        Start-Sleep -Seconds 1
+
+        try {
+            $existing = Invoke-RestMethod "http://127.0.0.1:4040/api/tunnels" -TimeoutSec 2
+
+            $tunnel = $existing.tunnels |
+                Where-Object {
+                    $_.public_url -like "https://*" -and
+                    $_.config.addr -match "8090"
+                } |
+                Select-Object -First 1
+
+            if ($tunnel) {
+                break
+            }
+        }
+        catch {
+            # Wait for ngrok startup
+        }
+    }
+}
+
+if (!$tunnel) {
+    throw "Could not establish ngrok tunnel. Check ngrok window."
+}
+
+$env:KHAIDAI_PUBLIC_BACKEND_URL = $tunnel.public_url.TrimEnd('/')
+
+Write-Host "Public backend: $env:KHAIDAI_PUBLIC_BACKEND_URL" -ForegroundColor Green
+
+# ==========================================
+# 8. CONFIGURATION VERIFICATION
+# ==========================================
+
+Write-Host "`n===== 8. CONFIGURATION SUMMARY =====" -ForegroundColor Cyan
+
+Write-Host "DB Username: $env:DB_USERNAME"
+Write-Host "DB Password: $([bool]$env:DB_PASSWORD)"
+Write-Host "Admin Key: $([bool]$env:KHAIDAI_ADMIN_API_KEY)"
+Write-Host "SSL Store ID: $env:SSLCOMMERZ_STORE_ID"
+Write-Host "SSL Password: $([bool]$env:SSLCOMMERZ_STORE_PASSWORD)"
+Write-Host "SSL Base URL: $env:SSLCOMMERZ_BASE_URL"
+Write-Host "Frontend URL: $env:KHAIDAI_FRONTEND_URL"
+Write-Host "Public Backend: $env:KHAIDAI_PUBLIC_BACKEND_URL"
+
+# ==========================================
+# 9. START SPRING BOOT
+# ==========================================
+
+Write-Host "`n===== STARTING KHAI-DAI BACKEND =====" -ForegroundColor Green
+
+.\mvnw.cmd spring-boot:run

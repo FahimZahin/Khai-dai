@@ -1,0 +1,5 @@
+frontend running:
+
+cd "C:\Users\Zahin\Documents\Projects\Khai-dai\frontend"
+
+npm run dev -- --host 0.0.0.0
