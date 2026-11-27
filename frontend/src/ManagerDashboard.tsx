@@ -12,6 +12,7 @@ import SalesAnalytics from "./SalesAnalytics";
 import InventoryManagement from "./InventoryManagement";
 import RecipeManagement from "./RecipeManagement";
 import PurchaseOrderManagement from "./PurchaseOrderManagement";
+import KitchenDisplay from "./KitchenDisplay";
 
 type OrderStatus =
   | "AWAITING_PAYMENT"
@@ -127,7 +128,7 @@ export default function ManagerDashboard() {
   const [adminKeyInput, setAdminKeyInput] = useState("");
   const [adminKey, setAdminKey] = useState("");
   const [authenticated, setAuthenticated] = useState(false);
-  const [activeView, setActiveView] = useState<"ORDERS" | "ANALYTICS" | "INVENTORY" | "RECIPES" | "PURCHASING">("ORDERS");
+  const [activeView, setActiveView] = useState<"ORDERS" | "KITCHEN" | "ANALYTICS" | "INVENTORY" | "RECIPES" | "PURCHASING">("ORDERS");
 
   const [orders, setOrders] = useState<ManagerOrder[]>([]);
 
@@ -607,11 +608,11 @@ const enableNotifications = async () => {
           </span>
 
           <h1>
-            {activeView === "ANALYTICS" ? "Sales Analytics" : activeView === "INVENTORY" ? "Inventory Management" : activeView === "RECIPES" ? "Recipe Management" : activeView === "PURCHASING" ? "Supplier & Purchase Orders" : "Order Dashboard"}
+            {activeView === "KITCHEN" ? "Kitchen Display System" : activeView === "ANALYTICS" ? "Sales Analytics" : activeView === "INVENTORY" ? "Inventory Management" : activeView === "RECIPES" ? "Recipe Management" : activeView === "PURCHASING" ? "Supplier & Purchase Orders" : "Order Dashboard"}
           </h1>
 
           <p>
-            {activeView === "ANALYTICS" ? "Review revenue, payments and restaurant performance." : activeView === "INVENTORY" ? "Manage ingredients, stock and reorder levels." : activeView === "RECIPES" ? "Manage menu recipes and ingredient quantities." : activeView === "PURCHASING" ? "Manage suppliers, purchase orders and stock receipts." : "Manage customer orders and kitchen preparation."}
+            {activeView === "KITCHEN" ? "Monitor live kitchen tickets and preparation." : activeView === "ANALYTICS" ? "Review revenue, payments and restaurant performance." : activeView === "INVENTORY" ? "Manage ingredients, stock and reorder levels." : activeView === "RECIPES" ? "Manage menu recipes and ingredient quantities." : activeView === "PURCHASING" ? "Manage suppliers, purchase orders and stock receipts." : "Manage customer orders and kitchen preparation."}
           </p>
         </div>
 
@@ -640,6 +641,13 @@ const enableNotifications = async () => {
             className="manager-link-button"
           >
             Orders
+          </button>
+
+          <button
+            onClick={() => setActiveView("KITCHEN")}
+            className="manager-link-button"
+          >
+            Kitchen Display
           </button>
 
           <button
@@ -691,7 +699,9 @@ const enableNotifications = async () => {
         </div>
       )}
 
-      {activeView === "ANALYTICS" ? (
+      {activeView === "KITCHEN" ? (
+        <KitchenDisplay adminKey={adminKey} />
+      ) : activeView === "ANALYTICS" ? (
         <SalesAnalytics adminKey={adminKey} />
       ) : activeView === "INVENTORY" ? (
         <InventoryManagement
